@@ -1,0 +1,30 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b03936555a3de094fb199c7ef8071f53, type: 3}
+  m_Name: FeedbackConfig
+  m_EditorClassIdentifier: Assembly-CSharp::ShieldGame.FeedbackConfig
+  backgroundColor: {r: 0.025, g: 0.035, b: 0.075, a: 1}
+  coreColor: {r: 0.35, g: 1, b: 0.9, a: 1}
+  shieldColor: {r: 0.95, g: 0.33, b: 0.78, a: 1}
+  projectileColor: {r: 1, g: 0.88, b: 0.3, a: 1}
+  scoreColor: {r: 0.88, g: 0.97, b: 1, a: 1}
+  milestoneHighlightColor: {r: 1, g: 0.43, b: 0.82, a: 1}
+  blockBurstDuration: 0.22
+  blockBurstScale: 0.2
+  coreDeathDuration: 0.32
+  coreDeathPunchScale: 1.18
+  scoreMilestoneTweenDuration: 0.22
+  blockClip: {fileID: 0}
+  deathClip: {fileID: 0}
+  uiClip: {fileID: 0}
+  shieldRotationClip: {fileID: 0}
+  musicClip: {fileID: 0}

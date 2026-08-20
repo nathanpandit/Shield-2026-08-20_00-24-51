@@ -1,0 +1,100 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b5200a748eb05324696d147122ddadc3, type: 3}
+  m_Name: DifficultyConfig
+  m_EditorClassIdentifier: Assembly-CSharp::ShieldGame.DifficultyConfig
+  milestones:
+  - scoreThreshold: 0
+    normalizedProjectileSpeed: 0.75
+    baseSpawnInterval: 0.62
+    hardMinimumImpactGap: 0.38
+    fairnessChance: 0.85
+    fairnessExtraGapPerClockwiseStep: 0.06
+    patternFragmentChance: 0
+  - scoreThreshold: 10
+    normalizedProjectileSpeed: 0.82
+    baseSpawnInterval: 0.58
+    hardMinimumImpactGap: 0.36
+    fairnessChance: 0.8
+    fairnessExtraGapPerClockwiseStep: 0.055
+    patternFragmentChance: 0
+  - scoreThreshold: 25
+    normalizedProjectileSpeed: 0.9
+    baseSpawnInterval: 0.54
+    hardMinimumImpactGap: 0.34
+    fairnessChance: 0.75
+    fairnessExtraGapPerClockwiseStep: 0.05
+    patternFragmentChance: 0
+  - scoreThreshold: 50
+    normalizedProjectileSpeed: 1
+    baseSpawnInterval: 0.5
+    hardMinimumImpactGap: 0.32
+    fairnessChance: 0.7
+    fairnessExtraGapPerClockwiseStep: 0.045
+    patternFragmentChance: 0
+  - scoreThreshold: 100
+    normalizedProjectileSpeed: 1.12
+    baseSpawnInterval: 0.46
+    hardMinimumImpactGap: 0.3
+    fairnessChance: 0.65
+    fairnessExtraGapPerClockwiseStep: 0.04
+    patternFragmentChance: 0.02
+  - scoreThreshold: 200
+    normalizedProjectileSpeed: 1.28
+    baseSpawnInterval: 0.42
+    hardMinimumImpactGap: 0.28
+    fairnessChance: 0.55
+    fairnessExtraGapPerClockwiseStep: 0.035
+    patternFragmentChance: 0.05
+  - scoreThreshold: 350
+    normalizedProjectileSpeed: 1.45
+    baseSpawnInterval: 0.39
+    hardMinimumImpactGap: 0.26
+    fairnessChance: 0.45
+    fairnessExtraGapPerClockwiseStep: 0.03
+    patternFragmentChance: 0.08
+  - scoreThreshold: 500
+    normalizedProjectileSpeed: 1.65
+    baseSpawnInterval: 0.36
+    hardMinimumImpactGap: 0.24
+    fairnessChance: 0.35
+    fairnessExtraGapPerClockwiseStep: 0.025
+    patternFragmentChance: 0.12
+  - scoreThreshold: 750
+    normalizedProjectileSpeed: 1.85
+    baseSpawnInterval: 0.34
+    hardMinimumImpactGap: 0.22
+    fairnessChance: 0.25
+    fairnessExtraGapPerClockwiseStep: 0.02
+    patternFragmentChance: 0.15
+  - scoreThreshold: 1000
+    normalizedProjectileSpeed: 2
+    baseSpawnInterval: 0.32
+    hardMinimumImpactGap: 0.2
+    fairnessChance: 0.2
+    fairnessExtraGapPerClockwiseStep: 0.015
+    patternFragmentChance: 0.2
+  spawnIntervalJitterPercent: 0.08
+  warmupAttackCount: 5
+  warmupSpeedMultiplier: 0.8
+  warmupSpawnIntervalMultiplier: 1.25
+  recentDirectionHistoryLength: 8
+  historyQualityFilterEnabled: 1
+  authoredPatterns:
+  - name: Clockwise Sweep
+    directions: 00000000010000000200000003000000
+  - name: Counter Sweep
+    directions: 00000000030000000200000001000000
+  - name: Opposite Alternation
+    directions: 00000000020000000100000003000000
+  - name: Three-Step Turn Pressure
+    directions: 000000000300000001000000
