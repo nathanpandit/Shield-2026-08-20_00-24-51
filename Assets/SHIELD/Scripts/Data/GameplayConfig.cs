@@ -43,6 +43,8 @@ namespace ShieldGame
         [Header("Projectile Effects")]
         [Min(0.01f)] public float greenProtectionDuration = 10f;
         [Min(0.01f)] public float blueSlowDuration = 1.5f;
+        [Tooltip("Minimum planned impact separation between different DUO arenas. Opening attacks are deliberately simultaneous.")]
+        [Min(0f)] public float duoCrossArenaImpactGap = 0.10f;
         [Range(0.05f, 1f)] public float blueProjectileSpeedMultiplier = 0.5f;
         [Min(0.01f)] public float purpleReverseDuration = 5f;
 
@@ -85,6 +87,7 @@ namespace ShieldGame
             greenProjectileSpeedMultiplier = Mathf.Max(1f, greenProjectileSpeedMultiplier);
             greenProtectionDuration = Mathf.Max(0.01f, greenProtectionDuration);
             blueSlowDuration = Mathf.Max(0.01f, blueSlowDuration);
+            duoCrossArenaImpactGap = Mathf.Max(0f, duoCrossArenaImpactGap);
             blueProjectileSpeedMultiplier = Mathf.Clamp(blueProjectileSpeedMultiplier, 0.05f, 1f);
             purpleReverseDuration = Mathf.Max(0.01f, purpleReverseDuration);
         }

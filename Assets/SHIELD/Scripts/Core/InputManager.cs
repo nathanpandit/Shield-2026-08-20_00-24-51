@@ -9,6 +9,7 @@ namespace ShieldGame
     {
         [SerializeField] private GameManager gameManager;
         [SerializeField] private ShieldController shieldController;
+        [SerializeField] private DuoGameManager duoGameManager;
 
         public static event Action OnGameplayTap;
 
@@ -20,10 +21,24 @@ namespace ShieldGame
             shieldController = shield;
         }
 
+        public void ConfigureDuo(DuoGameManager manager)
+        {
+            duoGameManager = manager;
+            gameManager = null;
+            shieldController = null;
+        }
+
         // This is deliberately the only Update method in custom SHIELD code.
         // Input is resolved before the central gameplay tick so a same-frame tap wins an impact tie.
         private void Update()
         {
+            if (duoGameManager != null)
+            {
+                UpdateDuoInput();
+                duoGameManager.Tick(Time.deltaTime);
+                return;
+            }
+
             if (gameManager == null)
             {
                 return;
@@ -37,6 +52,45 @@ namespace ShieldGame
 
             ReadDebugHotkeys();
             gameManager.Tick(Time.deltaTime);
+        }
+
+        private void UpdateDuoInput()
+        {
+            if (duoGameManager.State == GameState.Playing)
+            {
+                for (int i = 0; i < Input.touchCount; i++)
+                {
+                    Touch touch = Input.GetTouch(i);
+                    if (touch.phase != TouchPhase.Began || IsTouchOverUi(touch))
+                    {
+                        continue;
+                    }
+
+                    duoGameManager.RotateArena(duoGameManager.Layout.GetArenaIndex(touch.position));
+                    OnGameplayTap?.Invoke();
+                }
+
+                // Both keys are checked independently so two same-frame presses rotate
+                // both shields. Space deliberately has no DUO binding.
+                if (Input.GetKeyDown(KeyCode.LeftArrow))
+                {
+                    duoGameManager.RotateArena(0);
+                    OnGameplayTap?.Invoke();
+                }
+
+                if (Input.GetKeyDown(KeyCode.RightArrow))
+                {
+                    duoGameManager.RotateArena(1);
+                    OnGameplayTap?.Invoke();
+                }
+            }
+
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            if (Input.GetKeyDown(KeyCode.R))
+            {
+                duoGameManager.BeginRun();
+            }
+#endif
         }
 
         private static bool GameplayTapBeganThisFrame()

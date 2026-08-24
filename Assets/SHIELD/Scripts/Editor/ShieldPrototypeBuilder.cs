@@ -29,12 +29,14 @@ namespace ShieldGame.Editor
         private const string BlockVfxPrefabPath = Root + "/Prefabs/VFX/BlockBurstVFX.prefab";
         private const string HomeScenePath = Root + "/Scenes/Home.unity";
         private const string GameScenePath = Root + "/Scenes/Game.unity";
+        private const string DuoGameScenePath = Root + "/Scenes/DuoGame.unity";
 
         [MenuItem("Tools/SHIELD/Build Prototype")]
         public static void BuildPrototypeMenu()
         {
             bool existingScenes = AssetDatabase.LoadAssetAtPath<SceneAsset>(HomeScenePath) != null ||
-                                  AssetDatabase.LoadAssetAtPath<SceneAsset>(GameScenePath) != null;
+                                  AssetDatabase.LoadAssetAtPath<SceneAsset>(GameScenePath) != null ||
+                                  AssetDatabase.LoadAssetAtPath<SceneAsset>(DuoGameScenePath) != null;
             if (existingScenes && !EditorUtility.DisplayDialog(
                     "Rebuild SHIELD Prototype?",
                     "This will replace generated SHIELD scenes and prefabs. Configuration assets and their tuning values will be preserved.",
@@ -77,6 +79,7 @@ namespace ShieldGame.Editor
 
                 BuildHomeScene(font, square, feedback);
                 BuildGameScene(gameplay, difficulty, feedback, font, square, corePrefab, shieldPrefab, projectilePrefab, blockVfxPrefab);
+                BuildDuoGameScene(gameplay, difficulty, feedback, font, square, corePrefab, shieldPrefab, projectilePrefab, blockVfxPrefab);
                 ConfigureProject();
                 RemoveUnusedTemplateAssets();
 
@@ -343,15 +346,17 @@ namespace ShieldGame.Editor
             CreateCamera(feedback.backgroundColor);
             RectTransform safeArea = CreateCanvas("Canvas");
 
-            TMP_Text title = CreateText(safeArea, "TitleText", "SHIELD", font, 106, new Vector2(0.5f, 0.73f), new Vector2(760f, 160f), feedback.shieldColor);
-            TMP_Text best = CreateText(safeArea, "BestScoreText", "BEST: 0", font, 46, new Vector2(0.5f, 0.57f), new Vector2(700f, 100f), feedback.scoreColor);
-            Button play = CreateButton(safeArea, "PlayButton", "PLAY", font, square, new Vector2(0.5f, 0.41f), new Vector2(440f, 130f), feedback.shieldColor, out _);
-            Button sound = CreateButton(safeArea, "SoundButton", "SOUND: ON", font, square, new Vector2(0.5f, 0.25f), new Vector2(400f, 90f), new Color(0.12f, 0.19f, 0.32f, 1f), out TMP_Text soundLabel);
-            Button haptic = CreateButton(safeArea, "HapticButton", "HAPTIC: ON", font, square, new Vector2(0.5f, 0.17f), new Vector2(400f, 90f), new Color(0.12f, 0.19f, 0.32f, 1f), out TMP_Text hapticLabel);
+            TMP_Text title = CreateText(safeArea, "TitleText", "SHIELD", font, 106, new Vector2(0.5f, 0.79f), new Vector2(760f, 160f), feedback.shieldColor);
+            TMP_Text best = CreateText(safeArea, "SoloBestScoreText", "SOLO BEST: 0", font, 42, new Vector2(0.5f, 0.66f), new Vector2(700f, 80f), feedback.scoreColor);
+            TMP_Text duoBest = CreateText(safeArea, "DuoBestScoreText", "DUO BEST: 0", font, 42, new Vector2(0.5f, 0.61f), new Vector2(700f, 80f), feedback.scoreColor);
+            Button play = CreateButton(safeArea, "SoloButton", "SOLO", font, square, new Vector2(0.5f, 0.49f), new Vector2(440f, 120f), feedback.shieldColor, out _);
+            Button duo = CreateButton(safeArea, "DuoButton", "DUO", font, square, new Vector2(0.5f, 0.39f), new Vector2(440f, 120f), feedback.projectileColor, out _);
+            Button sound = CreateButton(safeArea, "SoundButton", "SOUND: ON", font, square, new Vector2(0.5f, 0.24f), new Vector2(400f, 90f), new Color(0.12f, 0.19f, 0.32f, 1f), out TMP_Text soundLabel);
+            Button haptic = CreateButton(safeArea, "HapticButton", "HAPTIC: ON", font, square, new Vector2(0.5f, 0.16f), new Vector2(400f, 90f), new Color(0.12f, 0.19f, 0.32f, 1f), out TMP_Text hapticLabel);
 
             var controllerObject = new GameObject("HomeController");
             HomeUIController controller = controllerObject.AddComponent<HomeUIController>();
-            controller.Configure(best, play, sound, soundLabel, haptic, hapticLabel);
+            controller.Configure(best, duoBest, play, duo, sound, soundLabel, haptic, hapticLabel);
             CreateEventSystem();
             EditorSceneManager.SaveScene(scene, HomeScenePath);
         }
@@ -440,6 +445,148 @@ namespace ShieldGame.Editor
             debugPanel.SetActive(false);
             CreateEventSystem();
             EditorSceneManager.SaveScene(scene, GameScenePath);
+        }
+
+        private static void BuildDuoGameScene(
+            GameplayConfig gameplay,
+            DifficultyConfig difficultyConfig,
+            FeedbackConfig feedback,
+            TMP_FontAsset font,
+            Sprite square,
+            GameObject corePrefab,
+            GameObject shieldPrefab,
+            GameObject projectilePrefab,
+            GameObject blockVfxPrefab)
+        {
+            Scene scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            Camera camera = CreateCamera(feedback.backgroundColor);
+            var gameplayRoot = new GameObject("DuoGameplayRoot");
+            var gameRoot = new GameObject("DuoGameRoot");
+
+            DuoArenaBundle first = BuildDuoArena(
+                1, gameplayRoot.transform, gameRoot.transform, camera, gameplay, difficultyConfig, feedback,
+                corePrefab, shieldPrefab, projectilePrefab, blockVfxPrefab);
+            DuoArenaBundle second = BuildDuoArena(
+                2, gameplayRoot.transform, gameRoot.transform, camera, gameplay, difficultyConfig, feedback,
+                corePrefab, shieldPrefab, projectilePrefab, blockVfxPrefab);
+
+            DuoLayoutController duoLayout = CreateManager<DuoLayoutController>(gameRoot.transform, "DuoLayoutController");
+            duoLayout.Configure(first.Layout, second.Layout);
+            ShieldAudioManager audio = CreateManager<ShieldAudioManager>(gameRoot.transform, "AudioManager");
+            AudioSource musicSource = audio.gameObject.AddComponent<AudioSource>();
+            AudioSource sfxSource = audio.gameObject.AddComponent<AudioSource>();
+            audio.Configure(musicSource, sfxSource);
+            HapticManager haptics = CreateManager<HapticManager>(gameRoot.transform, "HapticManager");
+            DuoGameManager manager = CreateManager<DuoGameManager>(gameRoot.transform, "DuoGameManager");
+            manager.Configure(gameplay, feedback, first.Session, second.Session, duoLayout, audio, haptics);
+            InputManager input = CreateManager<InputManager>(gameRoot.transform, "InputManager");
+            input.ConfigureDuo(manager);
+
+            RectTransform safeArea = CreateCanvas("DuoCanvas");
+            RectTransform firstPanel = CreateArenaUiPanel(safeArea, "FirstArenaUI");
+            RectTransform secondPanel = CreateArenaUiPanel(safeArea, "SecondArenaUI");
+            TMP_Text firstScore = CreateText(firstPanel, "ScoreText", "0", font, 36, new Vector2(0.5f, 0.5f), new Vector2(90f, 60f), Color.black);
+            TMP_Text secondScore = CreateText(secondPanel, "ScoreText", "0", font, 36, new Vector2(0.5f, 0.5f), new Vector2(90f, 60f), Color.black);
+            Button pauseButton = CreateButton(safeArea, "PauseButton", "II", font, square, new Vector2(1f, 1f), new Vector2(82f, 82f), new Color(0.12f, 0.19f, 0.32f, 0.95f), out _, new Vector2(-56f, -56f));
+
+            GameObject pausePanel = CreateOverlay(safeArea, "PauseOverlay", square);
+            CreateText(pausePanel.transform, "PauseTitle", "PAUSED", font, 70, new Vector2(0.5f, 0.64f), new Vector2(700f, 120f), feedback.scoreColor);
+            Button resume = CreateButton(pausePanel.transform, "ResumeButton", "RESUME", font, square, new Vector2(0.5f, 0.48f), new Vector2(430f, 115f), feedback.shieldColor, out _);
+            Button pauseHome = CreateButton(pausePanel.transform, "HomeButton", "HOME", font, square, new Vector2(0.5f, 0.36f), new Vector2(430f, 100f), new Color(0.12f, 0.19f, 0.32f, 1f), out _);
+
+            GameObject gameOverPanel = CreateOverlay(safeArea, "GameOverOverlay", square);
+            CreateText(gameOverPanel.transform, "GameOverTitle", "DUO OVER", font, 68, new Vector2(0.5f, 0.76f), new Vector2(760f, 120f), feedback.shieldColor);
+            TMP_Text firstFinal = CreateText(gameOverPanel.transform, "FirstScoreText", "P1: 0", font, 42, new Vector2(0.5f, 0.66f), new Vector2(650f, 72f), feedback.scoreColor);
+            TMP_Text secondFinal = CreateText(gameOverPanel.transform, "SecondScoreText", "P2: 0", font, 42, new Vector2(0.5f, 0.60f), new Vector2(650f, 72f), feedback.scoreColor);
+            TMP_Text total = CreateText(gameOverPanel.transform, "TotalScoreText", "TOTAL: 0", font, 54, new Vector2(0.5f, 0.51f), new Vector2(700f, 90f), feedback.scoreColor);
+            TMP_Text duoBest = CreateText(gameOverPanel.transform, "DuoBestScoreText", "DUO BEST: 0", font, 40, new Vector2(0.5f, 0.44f), new Vector2(700f, 80f), feedback.scoreColor);
+            TMP_Text newBest = CreateText(gameOverPanel.transform, "NewBestText", "NEW DUO BEST", font, 36, new Vector2(0.5f, 0.37f), new Vector2(700f, 72f), feedback.projectileColor);
+            Button restart = CreateButton(gameOverPanel.transform, "RestartButton", "RESTART", font, square, new Vector2(0.5f, 0.26f), new Vector2(450f, 110f), feedback.shieldColor, out _);
+            Button gameOverHome = CreateButton(gameOverPanel.transform, "HomeButton", "HOME", font, square, new Vector2(0.5f, 0.16f), new Vector2(450f, 96f), new Color(0.12f, 0.19f, 0.32f, 1f), out _);
+
+            DuoGameUIController duoUi = safeArea.gameObject.AddComponent<DuoGameUIController>();
+            duoUi.Configure(
+                firstPanel, secondPanel, firstScore, secondScore, pauseButton, pausePanel, resume, pauseHome,
+                gameOverPanel, firstFinal, secondFinal, total, duoBest, newBest, restart, gameOverHome);
+
+            pausePanel.SetActive(false);
+            gameOverPanel.SetActive(false);
+            newBest.gameObject.SetActive(false);
+            CreateEventSystem();
+            EditorSceneManager.SaveScene(scene, DuoGameScenePath);
+        }
+
+        private static DuoArenaBundle BuildDuoArena(
+            int arenaNumber,
+            Transform gameplayParent,
+            Transform systemsParent,
+            Camera camera,
+            GameplayConfig gameplay,
+            DifficultyConfig difficultyConfig,
+            FeedbackConfig feedback,
+            GameObject corePrefab,
+            GameObject shieldPrefab,
+            GameObject projectilePrefab,
+            GameObject blockVfxPrefab)
+        {
+            var arenaRoot = new GameObject("Arena" + arenaNumber);
+            arenaRoot.transform.SetParent(gameplayParent, false);
+            GameObject coreObject = (GameObject)PrefabUtility.InstantiatePrefab(corePrefab);
+            coreObject.name = "Core";
+            coreObject.transform.SetParent(arenaRoot.transform, false);
+            CoreController core = coreObject.GetComponent<CoreController>();
+            GameObject shieldObject = (GameObject)PrefabUtility.InstantiatePrefab(shieldPrefab);
+            shieldObject.name = "ShieldPivot";
+            shieldObject.transform.SetParent(arenaRoot.transform, false);
+            ShieldController shield = shieldObject.GetComponent<ShieldController>();
+            var projectileRoot = new GameObject("ProjectileRoot");
+            projectileRoot.transform.SetParent(arenaRoot.transform, false);
+            GameObject blockObject = (GameObject)PrefabUtility.InstantiatePrefab(blockVfxPrefab);
+            blockObject.name = "BlockBurstVFX";
+            blockObject.transform.SetParent(arenaRoot.transform, false);
+            BlockBurstVFX blockVfx = blockObject.GetComponent<BlockBurstVFX>();
+
+            var systemsRoot = new GameObject("Arena" + arenaNumber + "Systems");
+            systemsRoot.transform.SetParent(systemsParent, false);
+            DuoArenaSession session = CreateManager<DuoArenaSession>(systemsRoot.transform, "Session");
+            ArenaLayout layout = CreateManager<ArenaLayout>(systemsRoot.transform, "ArenaLayout");
+            DifficultyManager difficulty = CreateManager<DifficultyManager>(systemsRoot.transform, "DifficultyManager");
+            AttackDirector director = CreateManager<AttackDirector>(systemsRoot.transform, "AttackDirector");
+            ProjectileSpawner spawner = CreateManager<ProjectileSpawner>(systemsRoot.transform, "ProjectileSpawner");
+            ProjectilePool pool = CreateManager<ProjectilePool>(systemsRoot.transform, "ProjectilePool");
+            ScoreManager score = CreateManager<ScoreManager>(systemsRoot.transform, "ScoreManager");
+
+            difficulty.Configure(difficultyConfig);
+            director.Configure(difficultyConfig);
+            pool.Configure(projectilePrefab.GetComponent<ProjectileController>(), projectileRoot.transform, gameplay, feedback);
+            layout.Configure(camera, core, shield, gameplay, feedback);
+            spawner.Configure(gameplay, difficulty, director, pool, layout);
+            session.Configure(gameplay, feedback, core, shield, pool, spawner, score, difficulty, director, blockVfx);
+            return new DuoArenaBundle(session, layout);
+        }
+
+        private static RectTransform CreateArenaUiPanel(Transform parent, string name)
+        {
+            var panelObject = new GameObject(name, typeof(RectTransform));
+            RectTransform panel = panelObject.GetComponent<RectTransform>();
+            panel.SetParent(parent, false);
+            panel.anchorMin = Vector2.zero;
+            panel.anchorMax = Vector2.one;
+            panel.offsetMin = Vector2.zero;
+            panel.offsetMax = Vector2.zero;
+            return panel;
+        }
+
+        private sealed class DuoArenaBundle
+        {
+            public DuoArenaSession Session { get; }
+            public ArenaLayout Layout { get; }
+
+            public DuoArenaBundle(DuoArenaSession session, ArenaLayout layout)
+            {
+                Session = session;
+                Layout = layout;
+            }
         }
 
         private static T CreateManager<T>(Transform parent, string name) where T : Component
@@ -571,11 +718,11 @@ namespace ShieldGame.Editor
         private static void ConfigureProject()
         {
             PlayerSettings.productName = "SHIELD";
-            PlayerSettings.defaultInterfaceOrientation = UIOrientation.Portrait;
+            PlayerSettings.defaultInterfaceOrientation = UIOrientation.AutoRotation;
             PlayerSettings.allowedAutorotateToPortrait = true;
             PlayerSettings.allowedAutorotateToPortraitUpsideDown = false;
-            PlayerSettings.allowedAutorotateToLandscapeLeft = false;
-            PlayerSettings.allowedAutorotateToLandscapeRight = false;
+            PlayerSettings.allowedAutorotateToLandscapeLeft = true;
+            PlayerSettings.allowedAutorotateToLandscapeRight = true;
 
             GraphicsSettings.defaultRenderPipeline = null;
             int originalQuality = QualitySettings.GetQualityLevel();
@@ -602,7 +749,8 @@ namespace ShieldGame.Editor
             EditorBuildSettings.scenes = new[]
             {
                 new EditorBuildSettingsScene(HomeScenePath, true),
-                new EditorBuildSettingsScene(GameScenePath, true)
+                new EditorBuildSettingsScene(GameScenePath, true),
+                new EditorBuildSettingsScene(DuoGameScenePath, true)
             };
         }
 

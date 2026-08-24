@@ -10,7 +10,7 @@ namespace ShieldGame
 
         private TrailRenderer orangeSwitchTrail;
         private ProjectilePool ownerPool;
-        private GameManager gameManager;
+        private IGameplaySession gameSession;
         private Vector3 spawnPosition;
         private Vector3 shieldImpactPosition;
         private Vector3 coreImpactPosition;
@@ -53,10 +53,10 @@ namespace ShieldGame
             projectileVisual = visual;
         }
 
-        public void Initialize(ProjectilePool pool, GameManager manager)
+        public void Initialize(ProjectilePool pool, IGameplaySession session)
         {
             ownerPool = pool;
-            gameManager = manager;
+            gameSession = session;
         }
 
         public void Activate(
@@ -107,14 +107,14 @@ namespace ShieldGame
             ConfigureOrangeTrail(worldSize, color, projectileType == ProjectileType.Orange);
 
             gameObject.SetActive(true);
-            gameManager.GameplayTick += HandleGameplayTick;
+            gameSession.GameplayTick += HandleGameplayTick;
         }
 
         public void Deactivate()
         {
-            if (gameManager != null)
+            if (gameSession != null)
             {
-                gameManager.GameplayTick -= HandleGameplayTick;
+                gameSession.GameplayTick -= HandleGameplayTick;
             }
 
             IsActive = false;
@@ -138,14 +138,50 @@ namespace ShieldGame
             gameObject.SetActive(false);
         }
 
-        private void HandleGameplayTick(float deltaTime)
+        public void ApplyLayout(
+            Vector3 spawn,
+            Vector3 shieldImpact,
+            Vector3 coreImpact,
+            float worldSize,
+            Vector3 pathCenter,
+            float requestedOrangeOrbitRadius,
+            float requestedOrangeSwitchDuration)
         {
-            if (!IsActive || resolved || gameManager == null || gameManager.State != GameState.Playing)
+            if (!IsActive)
             {
                 return;
             }
 
-            float globalSpeedMultiplier = gameManager.ProjectileSpeedMultiplier;
+            spawnPosition = spawn;
+            shieldImpactPosition = shieldImpact;
+            coreImpactPosition = coreImpact;
+            if (ProjectileType == ProjectileType.Orange)
+            {
+                ConfigureOrangePath(pathCenter, requestedOrangeOrbitRadius, requestedOrangeSwitchDuration, worldSize);
+                transform.position = EvaluateOrangePosition(travelProgress);
+                ConfigureOrangeTrail(worldSize, VisualColor, true);
+                if (orangeSwitchTrail != null)
+                {
+                    orangeSwitchTrail.emitting = orangeSwitchStarted && !orangeSwitchCompleted;
+                }
+            }
+            else
+            {
+                ConfigureStraightPath();
+                transform.position = Vector3.LerpUnclamped(spawnPosition, coreImpactPosition, travelProgress);
+            }
+
+            transform.localScale = new Vector3(worldSize, worldSize, 1f);
+        }
+
+        private void HandleGameplayTick(float deltaTime)
+        {
+            if (!IsActive || resolved || gameSession == null || gameSession.State != GameState.Playing)
+            {
+                return;
+            }
+
+            float globalSpeedMultiplier = gameSession.ProjectileSpeedMultiplier;
             travelProgress = Mathf.Clamp01(travelProgress + deltaTime * globalSpeedMultiplier / travelDuration);
             if (ProjectileType == ProjectileType.Orange)
             {
@@ -160,7 +196,7 @@ namespace ShieldGame
             if (!shieldContactResolved && travelProgress >= shieldContactProgress)
             {
                 shieldContactResolved = true;
-                if (AttackDirection == gameManager.Shield.LogicalDirection)
+                if (AttackDirection == gameSession.Shield.LogicalDirection)
                 {
                     ResolveBlockAtShield();
                     return;
@@ -276,7 +312,7 @@ namespace ShieldGame
                     orangeSwitchTrail.emitting = true;
                 }
 
-                gameManager.PlayOrangeSwitchCue();
+                gameSession.PlayOrangeSwitchCue();
             }
 
             if (!orangeSwitchCompleted && travelProgress >= orangeSwitchEndProgress)
@@ -335,7 +371,7 @@ namespace ShieldGame
             Vector3 position = shieldImpactPosition;
             transform.position = position;
             ownerPool.Release(this);
-            gameManager.HandleProjectileBlocked(ProjectileType, position);
+            gameSession.HandleProjectileBlocked(ProjectileType, position);
         }
 
         private void ResolveMissAtCore()
@@ -344,14 +380,14 @@ namespace ShieldGame
             // later cannot catch it. It continues visually to the core before the miss.
             Vector3 missPosition = coreImpactPosition;
             ownerPool.Release(this);
-            gameManager.HandleProjectileMissed(ProjectileType, AttackDirection, missPosition);
+            gameSession.HandleProjectileMissed(ProjectileType, AttackDirection, missPosition);
         }
 
         private void OnDestroy()
         {
-            if (gameManager != null)
+            if (gameSession != null)
             {
-                gameManager.GameplayTick -= HandleGameplayTick;
+                gameSession.GameplayTick -= HandleGameplayTick;
             }
         }
     }

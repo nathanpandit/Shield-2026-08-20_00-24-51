@@ -13,7 +13,7 @@ namespace ShieldGame
         GameOver
     }
 
-    public sealed class GameManager : MonoBehaviour
+    public sealed class GameManager : MonoBehaviour, IGameplaySession
     {
         [SerializeField] private GameplayConfig gameplayConfig;
         [SerializeField] private FeedbackConfig feedbackConfig;
@@ -107,6 +107,10 @@ namespace ShieldGame
             }
 
             Instance = this;
+            if (Application.isMobilePlatform)
+            {
+                Screen.orientation = ScreenOrientation.Portrait;
+            }
             Application.targetFrameRate = gameplayConfig != null ? gameplayConfig.targetFrameRate : 60;
             QualitySettings.vSyncCount = 0;
             Time.timeScale = 1f;

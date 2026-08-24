@@ -111,6 +111,7 @@ namespace ShieldGame.Editor
                 Require(manager.ProjectilePool.ActiveCount == 0, "Blocked projectile was not returned at the shield.");
 
                 ValidateProjectileTypes(manager);
+                ValidateScreenScaleConsistency(manager);
 
                 // A projectile that passes a mismatched side stays committed to the core perimeter.
                 // Moving the shield into place afterward must not retroactively catch it.
@@ -397,6 +398,74 @@ namespace ShieldGame.Editor
             Require(score.text == "999", "A three-digit score was not displayed in the core.");
             Require(score.renderedWidth * 1.25f < coreDiameter, "A pulsing three-digit score could extend beyond the core horizontally.");
             Require(score.renderedHeight * 1.25f < coreDiameter, "A pulsing three-digit score could extend beyond the core vertically.");
+            manager.BeginRun();
+        }
+
+        private static void ValidateScreenScaleConsistency(GameManager manager)
+        {
+            PrepareIsolatedRun(manager);
+            ArenaLayout arena = Object.FindAnyObjectByType<ArenaLayout>();
+            Camera gameplayCamera = Camera.main;
+            Require(arena != null && gameplayCamera != null, "Arena or gameplay camera was unavailable for screen-scale validation.");
+
+            ProjectileController yellow = manager.ProjectilePool.Acquire(
+                ProjectileType.Yellow,
+                AttackDirection.Right,
+                arena.GetSpawnPosition(AttackDirection.Right),
+                arena.GetShieldImpactPosition(AttackDirection.Right),
+                arena.GetCoreImpactPosition(AttackDirection.Right),
+                1f,
+                arena.ProjectileWorldSize,
+                arena.Center,
+                arena.OrangeOrbitRadius);
+            ProjectileController orange = manager.ProjectilePool.Acquire(
+                ProjectileType.Orange,
+                AttackDirection.Right,
+                arena.GetSpawnPosition(AttackDirection.Left),
+                arena.GetShieldImpactPosition(AttackDirection.Right),
+                arena.GetCoreImpactPosition(AttackDirection.Right),
+                1f + manager.GameplayConfig.orangeSwitchDuration,
+                arena.ProjectileWorldSize,
+                arena.Center,
+                arena.OrangeOrbitRadius);
+
+            manager.Tick(0.25f);
+            float originalArenaSide = arena.ArenaSideWorld;
+            float originalOrthographicSize = gameplayCamera.orthographicSize;
+            int originalLayoutRevision = arena.LayoutRevision;
+            float yellowProgress = yellow.TravelProgress;
+            float orangeProgress = orange.TravelProgress;
+            float yellowContactProgress = yellow.ShieldContactProgress;
+            float orangeContactProgress = orange.ShieldContactProgress;
+            Vector3 yellowNormalizedPosition = (yellow.transform.position - arena.Center) / originalArenaSide;
+            Vector3 orangeNormalizedPosition = (orange.transform.position - arena.Center) / originalArenaSide;
+
+            gameplayCamera.orthographicSize = originalOrthographicSize * 1.4f;
+            manager.Tick(0f);
+
+            Require(arena.LayoutRevision > originalLayoutRevision, "Arena did not detect the changed screen projection.");
+            Require(Mathf.Abs(arena.ArenaSideWorld / originalArenaSide - 1.4f) < 0.001f, "Arena did not scale proportionally with the changed screen projection.");
+            Require(Mathf.Abs(yellow.TravelProgress - yellowProgress) < 0.001f, "Yellow progress changed during screen reflow.");
+            Require(Mathf.Abs(orange.TravelProgress - orangeProgress) < 0.001f, "Orange progress changed during screen reflow.");
+            Require(Mathf.Abs(yellow.TravelDuration - 1f) < 0.001f, "Yellow travel time changed with screen scale.");
+            Require(
+                Mathf.Abs(orange.TravelDuration - 1f - manager.GameplayConfig.orangeSwitchDuration) < 0.001f,
+                "Orange travel time changed with screen scale.");
+            Require(Mathf.Abs(yellow.ShieldContactProgress - yellowContactProgress) < 0.001f, "Yellow reaction window changed with screen scale.");
+            Require(Mathf.Abs(orange.ShieldContactProgress - orangeContactProgress) < 0.001f, "Orange reaction window changed with screen scale.");
+            Require(
+                Vector3.Distance((yellow.transform.position - arena.Center) / arena.ArenaSideWorld, yellowNormalizedPosition) < 0.001f,
+                "Yellow visual path did not retain its normalized screen position.");
+            Require(
+                Vector3.Distance((orange.transform.position - arena.Center) / arena.ArenaSideWorld, orangeNormalizedPosition) < 0.001f,
+                "Orange visual path did not retain its normalized screen position.");
+            Require(Mathf.Abs(yellow.transform.localScale.x - arena.ProjectileWorldSize) < 0.001f, "Yellow visual size did not reflow with the screen.");
+            Require(Mathf.Abs(orange.transform.localScale.x - arena.ProjectileWorldSize) < 0.001f, "Orange visual size did not reflow with the screen.");
+
+            gameplayCamera.orthographicSize = originalOrthographicSize;
+            manager.Tick(0f);
+            Require(Mathf.Abs(arena.ArenaSideWorld - originalArenaSide) < 0.001f, "Arena did not restore after the screen projection returned.");
+            manager.ProjectilePool.ReturnAll();
             manager.BeginRun();
         }
 

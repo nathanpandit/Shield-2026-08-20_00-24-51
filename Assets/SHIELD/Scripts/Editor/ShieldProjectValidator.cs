@@ -13,6 +13,7 @@ namespace ShieldGame.Editor
     {
         private const string HomeScenePath = "Assets/SHIELD/Scenes/Home.unity";
         private const string GameScenePath = "Assets/SHIELD/Scenes/Game.unity";
+        private const string DuoGameScenePath = "Assets/SHIELD/Scenes/DuoGame.unity";
 
         [MenuItem("Tools/SHIELD/Validate Prototype")]
         public static void ValidatePrototypeMenu()
@@ -57,6 +58,7 @@ namespace ShieldGame.Editor
             GameObject blockBurstPrefab = RequireAsset<GameObject>("Assets/SHIELD/Prefabs/VFX/BlockBurstVFX.prefab", errors);
             RequireAsset<SceneAsset>(HomeScenePath, errors);
             RequireAsset<SceneAsset>(GameScenePath, errors);
+            RequireAsset<SceneAsset>(DuoGameScenePath, errors);
 
             if (difficulty != null && !difficulty.ValidateConfiguration(out string configMessage))
             {
@@ -82,6 +84,11 @@ namespace ShieldGame.Editor
             if (File.Exists(GameScenePath))
             {
                 ValidateGameScene(errors);
+            }
+
+            if (File.Exists(DuoGameScenePath))
+            {
+                ValidateDuoGameScene(errors);
             }
 
             return errors;
@@ -113,6 +120,11 @@ namespace ShieldGame.Editor
             if (gameplay.blueProjectileSpeedMultiplier <= 0f || gameplay.blueProjectileSpeedMultiplier > 1f)
             {
                 errors.Add("Blue projectile speed multiplier must be greater than zero and at most 1.0.");
+            }
+
+            if (gameplay.duoCrossArenaImpactGap < 0f)
+            {
+                errors.Add("DUO cross-arena impact gap cannot be negative.");
             }
 
             if (gameplay.greenProtectionDuration <= 0f ||
@@ -160,9 +172,12 @@ namespace ShieldGame.Editor
         private static void ValidateBuildSettings(List<string> errors)
         {
             EditorBuildSettingsScene[] scenes = EditorBuildSettings.scenes;
-            if (scenes.Length < 2 || scenes[0].path != HomeScenePath || scenes[1].path != GameScenePath)
+            if (scenes.Length < 3 ||
+                scenes[0].path != HomeScenePath ||
+                scenes[1].path != GameScenePath ||
+                scenes[2].path != DuoGameScenePath)
             {
-                errors.Add("Build Settings must contain Home then Game.");
+                errors.Add("Build Settings must contain Home, Game, then DuoGame.");
             }
         }
 
@@ -199,6 +214,59 @@ namespace ShieldGame.Editor
             if (inputManagers != 1) errors.Add("Game scene must contain exactly one InputManager.");
             if (audioListeners != 1) errors.Add("Game scene must contain exactly one AudioListener.");
             if (rigidbodies != 0 || colliders != 0) errors.Add("Game scene contains gameplay physics components.");
+        }
+
+        private static void ValidateDuoGameScene(List<string> errors)
+        {
+            Scene scene = EditorSceneManager.OpenScene(DuoGameScenePath, OpenSceneMode.Single);
+            int duoManagers = 0;
+            int soloManagers = 0;
+            int sessions = 0;
+            int layouts = 0;
+            int spawners = 0;
+            int pools = 0;
+            int scores = 0;
+            int inputManagers = 0;
+            int audioListeners = 0;
+            int rigidbodies = 0;
+            int colliders = 0;
+            GameObject[] roots = scene.GetRootGameObjects();
+            for (int i = 0; i < roots.Length; i++)
+            {
+                Component[] components = roots[i].GetComponentsInChildren<Component>(true);
+                for (int componentIndex = 0; componentIndex < components.Length; componentIndex++)
+                {
+                    Component component = components[componentIndex];
+                    if (component == null)
+                    {
+                        errors.Add("Missing script in DuoGame scene under " + roots[i].name);
+                        continue;
+                    }
+
+                    if (component is DuoGameManager) duoManagers++;
+                    if (component is GameManager) soloManagers++;
+                    if (component is DuoArenaSession) sessions++;
+                    if (component is ArenaLayout) layouts++;
+                    if (component is ProjectileSpawner) spawners++;
+                    if (component is ProjectilePool) pools++;
+                    if (component is ScoreManager) scores++;
+                    if (component is InputManager) inputManagers++;
+                    if (component is AudioListener) audioListeners++;
+                    if (component is Rigidbody2D) rigidbodies++;
+                    if (component is Collider2D) colliders++;
+                }
+            }
+
+            if (duoManagers != 1) errors.Add("DuoGame scene must contain exactly one DuoGameManager.");
+            if (soloManagers != 0) errors.Add("DuoGame scene must not contain a SOLO GameManager.");
+            if (sessions != 2) errors.Add("DuoGame scene must contain exactly two DuoArenaSession components.");
+            if (layouts != 2 || spawners != 2 || pools != 2 || scores != 2)
+            {
+                errors.Add("DuoGame scene must contain two complete arena simulations.");
+            }
+            if (inputManagers != 1) errors.Add("DuoGame scene must contain exactly one InputManager.");
+            if (audioListeners != 1) errors.Add("DuoGame scene must contain exactly one AudioListener.");
+            if (rigidbodies != 0 || colliders != 0) errors.Add("DuoGame scene contains gameplay physics components.");
         }
     }
 }

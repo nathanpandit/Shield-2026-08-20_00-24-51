@@ -5,6 +5,7 @@ namespace ShieldGame
     public sealed class PlayerPrefsPersistenceService : IPersistenceService
     {
         private const string BestScoreKey = "SHIELD_v1_BestScore";
+        private const string DuoBestScoreKey = "SHIELD_v1_DuoBestScore";
         private const string SoundEnabledKey = "SHIELD_v1_SoundEnabled";
         private const string HapticsEnabledKey = "SHIELD_v1_HapticsEnabled";
         private const string TutorialCompletedKey = "SHIELD_v1_TutorialCompleted";
@@ -13,6 +14,12 @@ namespace ShieldGame
         {
             get => PlayerPrefs.GetInt(BestScoreKey, 0);
             set => PlayerPrefs.SetInt(BestScoreKey, Mathf.Max(0, value));
+        }
+
+        public int DuoBestScore
+        {
+            get => PlayerPrefs.GetInt(DuoBestScoreKey, 0);
+            set => PlayerPrefs.SetInt(DuoBestScoreKey, Mathf.Max(0, value));
         }
 
         public bool SoundEnabled

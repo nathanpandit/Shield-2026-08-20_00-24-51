@@ -33,6 +33,7 @@ MonoBehaviour:
   greenProjectileSpeedMultiplier: 2
   greenProtectionDuration: 10
   blueSlowDuration: 1.5
+  duoCrossArenaImpactGap: 0.1
   blueProjectileSpeedMultiplier: 0.5
   purpleReverseDuration: 5
   firstAttackDirection: 2

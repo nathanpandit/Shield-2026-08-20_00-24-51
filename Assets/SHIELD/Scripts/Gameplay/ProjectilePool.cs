@@ -12,7 +12,7 @@ namespace ShieldGame
 
         private readonly Stack<ProjectileController> inactive = new Stack<ProjectileController>(16);
         private readonly List<ProjectileController> active = new List<ProjectileController>(16);
-        private GameManager gameManager;
+        private IGameplaySession gameSession;
         private bool initialized;
 
         public int ActiveCount => active.Count;
@@ -25,9 +25,9 @@ namespace ShieldGame
             feedbackConfig = feedback;
         }
 
-        public void Initialize(GameManager manager)
+        public void Initialize(IGameplaySession session)
         {
-            gameManager = manager;
+            gameSession = session;
             if (initialized)
             {
                 return;
@@ -130,11 +130,33 @@ namespace ShieldGame
             }
         }
 
+        public void ApplyLayoutToActive(ArenaLayout arenaLayout)
+        {
+            if (arenaLayout == null)
+            {
+                return;
+            }
+
+            float orangeSwitchDuration = gameplayConfig != null ? gameplayConfig.orangeSwitchDuration : 0.50f;
+            for (int i = 0; i < active.Count; i++)
+            {
+                ProjectileController projectile = active[i];
+                projectile.ApplyLayout(
+                    arenaLayout.GetSpawnPosition(projectile.VisualSpawnDirection),
+                    arenaLayout.GetShieldImpactPosition(projectile.AttackDirection),
+                    arenaLayout.GetCoreImpactPosition(projectile.AttackDirection),
+                    arenaLayout.ProjectileWorldSize,
+                    arenaLayout.Center,
+                    arenaLayout.OrangeOrbitRadius,
+                    orangeSwitchDuration);
+            }
+        }
+
         private ProjectileController CreateProjectile()
         {
             ProjectileController projectile = Instantiate(projectilePrefab, projectileRoot != null ? projectileRoot : transform);
             projectile.name = "Projectile_Pooled";
-            projectile.Initialize(this, gameManager);
+            projectile.Initialize(this, gameSession);
             projectile.gameObject.SetActive(false);
             return projectile;
         }

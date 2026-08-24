@@ -10,7 +10,7 @@ namespace ShieldGame
         [SerializeField] private ProjectilePool projectilePool;
         [SerializeField] private ArenaLayout arenaLayout;
 
-        private GameManager gameManager;
+        private IGameplaySession gameSession;
         private PendingAttack pendingAttack;
         private bool hasPendingAttack;
         private bool hasPreviousScheduledImpact;
@@ -20,6 +20,9 @@ namespace ShieldGame
         private float lastScheduledImpactTime;
         private AttackDirection lastScheduledImpactDirection;
         private int spawnedAttackCount;
+        private int appliedLayoutRevision = -1;
+        private DuoGameManager duoGameManager;
+        private int duoArenaIndex = -1;
 
         public float RunTime => runTime;
         public float TimeUntilNextSpawn => hasPendingAttack ? Mathf.Max(0f, pendingAttack.spawnTime - runTime) : 0f;
@@ -31,7 +34,7 @@ namespace ShieldGame
         public AttackDirection? PendingDirection => hasPendingAttack ? pendingAttack.direction : (AttackDirection?)null;
         public ProjectileType? PendingProjectileType => hasPendingAttack ? pendingAttack.projectileType : (ProjectileType?)null;
         public float PendingTravelDuration => hasPendingAttack ? pendingAttack.travelDuration : 0f;
-        public bool SpawningPaused => running && gameManager != null && gameManager.BlueSlowActive;
+        public bool SpawningPaused => running && gameSession != null && gameSession.BlueSlowActive;
 
         public void Configure(GameplayConfig gameplay, DifficultyManager difficulty, AttackDirector director, ProjectilePool pool, ArenaLayout arena)
         {
@@ -42,15 +45,23 @@ namespace ShieldGame
             arenaLayout = arena;
         }
 
-        public void Initialize(GameManager manager)
+        public void Initialize(IGameplaySession session)
         {
-            gameManager = manager;
-            gameManager.GameplayTick += HandleGameplayTick;
+            gameSession = session;
+            gameSession.GameplayTick += HandleGameplayTick;
             difficultyManager.MilestoneChanged += HandleMilestoneChanged;
+            appliedLayoutRevision = arenaLayout != null ? arenaLayout.LayoutRevision : -1;
+        }
+
+        public void ConfigureDuoFairness(DuoGameManager manager, int arenaIndex)
+        {
+            duoGameManager = manager;
+            duoArenaIndex = arenaIndex;
         }
 
         public void StartRun()
         {
+            RefreshLayoutIfNeeded();
             runTime = 0f;
             lastSpawnTime = 0f;
             lastScheduledImpactTime = 0f;
@@ -95,7 +106,8 @@ namespace ShieldGame
 
         private void HandleGameplayTick(float deltaTime)
         {
-            if (!running || !hasPendingAttack || gameManager.State != GameState.Playing)
+            RefreshLayoutIfNeeded();
+            if (!running || !hasPendingAttack || gameSession.State != GameState.Playing)
             {
                 return;
             }
@@ -112,6 +124,23 @@ namespace ShieldGame
             {
                 SpawnPendingAttack();
             }
+        }
+
+        private void RefreshLayoutIfNeeded()
+        {
+            if (arenaLayout == null)
+            {
+                return;
+            }
+
+            arenaLayout.RefreshIfScreenChanged();
+            if (appliedLayoutRevision == arenaLayout.LayoutRevision)
+            {
+                return;
+            }
+
+            projectilePool?.ApplyLayoutToActive(arenaLayout);
+            appliedLayoutRevision = arenaLayout.LayoutRevision;
         }
 
         private void PrepareFirstAttack()
@@ -135,6 +164,13 @@ namespace ShieldGame
         private void SpawnPendingAttack()
         {
             PendingAttack attack = pendingAttack;
+            if (duoGameManager != null &&
+                !duoGameManager.TryReserveImpact(duoArenaIndex, attack.travelDuration, spawnedAttackCount == 0, out float delay))
+            {
+                pendingAttack.spawnTime += Mathf.Max(0f, delay);
+                return;
+            }
+
             hasPendingAttack = false;
             AttackDirection visualSpawnDirection = attack.projectileType == ProjectileType.Orange
                 ? AttackDirectionUtility.Opposite(attack.direction)
@@ -280,9 +316,9 @@ namespace ShieldGame
 
         private void OnDestroy()
         {
-            if (gameManager != null)
+            if (gameSession != null)
             {
-                gameManager.GameplayTick -= HandleGameplayTick;
+                gameSession.GameplayTick -= HandleGameplayTick;
             }
 
             if (difficultyManager != null)

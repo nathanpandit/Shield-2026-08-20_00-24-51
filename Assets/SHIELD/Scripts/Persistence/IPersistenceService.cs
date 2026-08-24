@@ -3,6 +3,7 @@ namespace ShieldGame
     public interface IPersistenceService
     {
         int BestScore { get; set; }
+        int DuoBestScore { get; set; }
         bool SoundEnabled { get; set; }
         bool HapticsEnabled { get; set; }
         bool TutorialCompleted { get; set; }
