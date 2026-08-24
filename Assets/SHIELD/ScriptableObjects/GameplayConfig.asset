@@ -21,5 +21,19 @@ MonoBehaviour:
   shieldArcDegrees: 75
   shieldThicknessNormalized: 0.012
   projectileSizeNormalized: 0.026
+  specialProjectileWarmupCount: 8
+  yellowProjectileWeight: 0.92
+  greenProjectileWeight: 0.02
+  blueProjectileWeight: 0.02
+  purpleProjectileWeight: 0.02
+  redProjectileWeight: 0.01
+  orangeProjectileWeight: 0.01
+  orangeSwitchDuration: 0.5
+  orangeSwitchRadiusNormalized: 0.25
+  greenProjectileSpeedMultiplier: 2
+  greenProtectionDuration: 10
+  blueSlowDuration: 1.5
+  blueProjectileSpeedMultiplier: 0.5
+  purpleReverseDuration: 5
   firstAttackDirection: 2
   explicitDebugFeaturesEnabled: 0

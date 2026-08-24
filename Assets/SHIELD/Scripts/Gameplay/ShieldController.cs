@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using DG.Tweening;
 using UnityEngine;
 
@@ -11,10 +12,11 @@ namespace ShieldGame
         [SerializeField] private FeedbackConfig feedbackConfig;
 
         private Tween activeTween;
-        private int pendingVisualClockwiseSteps;
+        private readonly Queue<int> pendingVisualSteps = new Queue<int>(8);
 
         public AttackDirection LogicalDirection { get; private set; } = AttackDirection.Top;
-        public int PendingVisualClockwiseSteps => pendingVisualClockwiseSteps;
+        public int PendingVisualClockwiseSteps => pendingVisualSteps.Count;
+        public int PendingVisualStepCount => pendingVisualSteps.Count;
         public bool IsVisualTweenRunning => activeTween != null && activeTween.IsActive();
 
         public void Configure(Transform pivot, LineRenderer arc, GameplayConfig gameplay, FeedbackConfig feedback)
@@ -27,8 +29,20 @@ namespace ShieldGame
 
         public void RotateClockwise()
         {
-            LogicalDirection = AttackDirectionUtility.Clockwise(LogicalDirection);
-            pendingVisualClockwiseSteps++;
+            QueueRotation(1);
+        }
+
+        public void RotateCounterClockwise()
+        {
+            QueueRotation(-1);
+        }
+
+        private void QueueRotation(int clockwiseStep)
+        {
+            LogicalDirection = clockwiseStep > 0
+                ? AttackDirectionUtility.Clockwise(LogicalDirection)
+                : AttackDirectionUtility.CounterClockwise(LogicalDirection);
+            pendingVisualSteps.Enqueue(clockwiseStep > 0 ? 1 : -1);
             if (!IsVisualTweenRunning)
             {
                 PlayNextVisualStep();
@@ -39,7 +53,7 @@ namespace ShieldGame
         {
             activeTween?.Kill(false);
             activeTween = null;
-            pendingVisualClockwiseSteps = 0;
+            pendingVisualSteps.Clear();
             LogicalDirection = AttackDirection.Top;
             if (visualPivot != null)
             {
@@ -51,7 +65,7 @@ namespace ShieldGame
         {
             activeTween?.Kill(false);
             activeTween = null;
-            pendingVisualClockwiseSteps = 0;
+            pendingVisualSteps.Clear();
         }
 
         public void ApplyLayout(Vector3 center, float arenaSide)
@@ -91,13 +105,14 @@ namespace ShieldGame
 
         private void PlayNextVisualStep()
         {
-            if (pendingVisualClockwiseSteps <= 0 || visualPivot == null || gameplayConfig == null)
+            if (pendingVisualSteps.Count <= 0 || visualPivot == null || gameplayConfig == null)
             {
                 activeTween = null;
                 return;
             }
 
-            float targetZ = visualPivot.localEulerAngles.z - 90f;
+            int clockwiseStep = pendingVisualSteps.Peek();
+            float targetZ = visualPivot.localEulerAngles.z - 90f * clockwiseStep;
             activeTween = visualPivot
                 .DOLocalRotate(new Vector3(0f, 0f, targetZ), gameplayConfig.shieldRotationDuration, RotateMode.FastBeyond360)
                 .SetEase(Ease.OutQuad)
@@ -108,8 +123,12 @@ namespace ShieldGame
         private void CompleteVisualStep()
         {
             activeTween = null;
-            pendingVisualClockwiseSteps = Mathf.Max(0, pendingVisualClockwiseSteps - 1);
-            if (pendingVisualClockwiseSteps > 0)
+            if (pendingVisualSteps.Count > 0)
+            {
+                pendingVisualSteps.Dequeue();
+            }
+
+            if (pendingVisualSteps.Count > 0)
             {
                 PlayNextVisualStep();
             }

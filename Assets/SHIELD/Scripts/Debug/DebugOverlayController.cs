@@ -68,10 +68,15 @@ namespace ShieldGame
             builder.Append("FAIRNESS: ").Append(milestone != null ? milestone.fairnessChance.ToString("P0") : "-").Append(" / applied ").Append(spawner.LastFairnessCushionApplied).Append('\n');
             builder.Append("ACTIVE: ").Append(gameManager.ProjectilePool.ActiveCount).Append('\n');
             builder.Append("SHIELD: ").Append(gameManager.Shield.LogicalDirection).Append('\n');
-            builder.Append("VISUAL QUEUE: ").Append(gameManager.Shield.PendingVisualClockwiseSteps).Append('\n');
+            builder.Append("REVERSED: ").Append(gameManager.PurpleReverseActive).Append('\n');
+            builder.Append("VISUAL QUEUE: ").Append(gameManager.Shield.PendingVisualStepCount).Append('\n');
             builder.Append("LAST IMPACT DIR: ").Append(spawner.HasPreviousScheduledImpact ? spawner.LastScheduledImpactDirection.ToString() : "None").Append('\n');
             builder.Append("NEXT DIR: ").Append(spawner.PendingDirection.HasValue ? spawner.PendingDirection.Value.ToString() : "None").Append('\n');
+            builder.Append("NEXT TYPE: ").Append(spawner.PendingProjectileType.HasValue ? spawner.PendingProjectileType.Value.ToString() : "None").Append('\n');
             builder.Append("NEXT SPAWN: ").Append(spawner.TimeUntilNextSpawn.ToString("0.00")).Append(" s\n");
+            builder.Append("GREEN: ").Append(gameManager.GreenProtectionRemaining.ToString("0.0")).Append(" s\n");
+            builder.Append("BLUE: ").Append(gameManager.BlueSlowRemaining.ToString("0.0")).Append(" s x").Append(gameManager.ProjectileSpeedMultiplier.ToString("0.00")).Append('\n');
+            builder.Append("PURPLE: ").Append(gameManager.PurpleReverseRemaining.ToString("0.0")).Append(" s\n");
             builder.Append("INVINCIBLE: ").Append(gameManager.DebugInvincibility).Append('\n');
             builder.Append("LAST MISS: ").Append(gameManager.LastDebugMiss);
             debugText.text = builder.ToString();

@@ -15,6 +15,11 @@ namespace ShieldGame
         public Vector3 Center { get; private set; }
         public float ArenaSideWorld { get; private set; }
         public float ProjectileWorldSize => ArenaSideWorld * gameplayConfig.projectileSizeNormalized;
+        public float OrangeOrbitRadius => ArenaSideWorld * Mathf.Max(
+            gameplayConfig.orangeSwitchRadiusNormalized,
+            gameplayConfig.shieldRadiusNormalized
+                + gameplayConfig.shieldThicknessNormalized * 0.5f
+                + gameplayConfig.projectileSizeNormalized);
 
         public void Configure(Camera targetCamera, CoreController core, ShieldController shield, GameplayConfig gameplay, FeedbackConfig feedback)
         {

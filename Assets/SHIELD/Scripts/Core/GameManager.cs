@@ -36,6 +36,7 @@ namespace ShieldGame
         public event Action<int, int, bool> GameOver;
         public event Action<GameState> StateChanged;
         public event Action<bool> DebugOverlayChanged;
+        public event Action StatusEffectsChanged;
 
         public GameState State { get; private set; } = GameState.Initializing;
         public CoreController Core => coreController;
@@ -46,6 +47,15 @@ namespace ShieldGame
         public DifficultyManager Difficulty => difficultyManager;
         public GameplayConfig GameplayConfig => gameplayConfig;
         public FeedbackConfig FeedbackConfig => feedbackConfig;
+        public float GreenProtectionRemaining { get; private set; }
+        public float BlueSlowRemaining { get; private set; }
+        public float PurpleReverseRemaining { get; private set; }
+        public bool GreenProtectionActive => GreenProtectionRemaining > 0f;
+        public bool BlueSlowActive => BlueSlowRemaining > 0f;
+        public bool PurpleReverseActive => PurpleReverseRemaining > 0f;
+        public float ProjectileSpeedMultiplier => BlueSlowActive && gameplayConfig != null
+            ? gameplayConfig.blueProjectileSpeedMultiplier
+            : 1f;
         public bool DebugInvincibility { get; private set; }
         public bool DebugOverlayVisible { get; private set; }
         public string LastDebugMiss { get; private set; } = "None";
@@ -122,7 +132,9 @@ namespace ShieldGame
                 return;
             }
 
-            GameplayTick?.Invoke(Mathf.Max(0f, deltaTime));
+            float safeDeltaTime = Mathf.Max(0f, deltaTime);
+            UpdateStatusEffects(safeDeltaTime);
+            GameplayTick?.Invoke(safeDeltaTime);
         }
 
         public void BeginRun()
@@ -133,6 +145,7 @@ namespace ShieldGame
             SetState(GameState.Initializing);
             projectileSpawner.StopRun();
             projectilePool.ReturnAll();
+            ResetStatusEffects();
             coreController?.ResetVisual();
             shieldController.ResetShield();
             scoreManager.ResetRun();
@@ -169,7 +182,24 @@ namespace ShieldGame
             PauseChanged?.Invoke(false);
         }
 
-        public void HandleProjectileBlocked(Vector3 impactPosition)
+        public void RotateShieldForTap()
+        {
+            if (State != GameState.Playing || shieldController == null)
+            {
+                return;
+            }
+
+            if (PurpleReverseActive)
+            {
+                shieldController.RotateCounterClockwise();
+            }
+            else
+            {
+                shieldController.RotateClockwise();
+            }
+        }
+
+        public void HandleProjectileBlocked(ProjectileType projectileType, Vector3 impactPosition)
         {
             if (State != GameState.Playing)
             {
@@ -177,11 +207,24 @@ namespace ShieldGame
             }
 
             scoreManager.Increment();
-            blockBurstVfx?.PlayAt(impactPosition);
+
+            if (projectileType == ProjectileType.Green)
+            {
+                ActivateGreenProtection();
+            }
+            else if (projectileType == ProjectileType.Blue)
+            {
+                ActivateBlueSlow();
+            }
+
+            Color projectileColor = feedbackConfig != null
+                ? feedbackConfig.GetProjectileColor(projectileType)
+                : Color.white;
+            blockBurstVfx?.PlayAt(impactPosition, projectileColor);
             audioManager?.PlayBlock();
         }
 
-        public void HandleProjectileMissed(AttackDirection direction, Vector3 impactPosition)
+        public void HandleProjectileMissed(ProjectileType projectileType, AttackDirection direction, Vector3 impactPosition)
         {
             if (State != GameState.Playing)
             {
@@ -190,8 +233,33 @@ namespace ShieldGame
 
             if (DebugInvincibility && DebugFeaturesAvailable)
             {
-                LastDebugMiss = direction + " at score " + scoreManager.CurrentScore;
-                Debug.Log("SHIELD debug invincibility absorbed a miss from " + direction + ".", this);
+                LastDebugMiss = projectileType + " " + direction + " at score " + scoreManager.CurrentScore;
+                Debug.Log("SHIELD debug invincibility absorbed a " + projectileType + " miss from " + direction + ".", this);
+                return;
+            }
+
+            if (projectileType == ProjectileType.Blue)
+            {
+                PlaySafeCoreAbsorb(impactPosition, projectileType);
+                return;
+            }
+
+            if (projectileType == ProjectileType.Purple)
+            {
+                ActivatePurpleReverse();
+                PlaySafeCoreAbsorb(impactPosition, projectileType);
+                return;
+            }
+
+            if (projectileType == ProjectileType.Green)
+            {
+                PlaySafeCoreAbsorb(impactPosition, projectileType);
+                return;
+            }
+
+            if (GreenProtectionActive && projectileType != ProjectileType.Red)
+            {
+                PlaySafeCoreAbsorb(impactPosition, projectileType);
                 return;
             }
 
@@ -226,6 +294,22 @@ namespace ShieldGame
             }
         }
 
+        public void ForceNextProjectileType(ProjectileType projectileType)
+        {
+            if (DebugFeaturesAvailable && State == GameState.Playing)
+            {
+                projectileSpawner.ForceNextProjectileType(projectileType);
+            }
+        }
+
+        public void PlayOrangeSwitchCue()
+        {
+            if (State == GameState.Playing)
+            {
+                audioManager?.PlayOrangeSwitch();
+            }
+        }
+
         public void AdjustDebugScore(int offset)
         {
             if (!DebugFeaturesAvailable || State != GameState.Playing)
@@ -257,6 +341,98 @@ namespace ShieldGame
             SceneManager.LoadScene("Home");
         }
 
+        private void ActivateGreenProtection()
+        {
+            GreenProtectionRemaining = gameplayConfig != null ? gameplayConfig.greenProtectionDuration : 10f;
+            RefreshCoreEffectColor();
+            StatusEffectsChanged?.Invoke();
+        }
+
+        private void ActivateBlueSlow()
+        {
+            BlueSlowRemaining = gameplayConfig != null ? gameplayConfig.blueSlowDuration : 1.5f;
+            RefreshCoreEffectColor();
+            StatusEffectsChanged?.Invoke();
+        }
+
+        private void ActivatePurpleReverse()
+        {
+            PurpleReverseRemaining = gameplayConfig != null ? gameplayConfig.purpleReverseDuration : 5f;
+            RefreshCoreEffectColor();
+            StatusEffectsChanged?.Invoke();
+        }
+
+        private void UpdateStatusEffects(float deltaTime)
+        {
+            bool hadGreen = GreenProtectionActive;
+            bool hadBlue = BlueSlowActive;
+            bool hadPurple = PurpleReverseActive;
+            if (!hadGreen && !hadBlue && !hadPurple)
+            {
+                return;
+            }
+
+            GreenProtectionRemaining = Mathf.Max(0f, GreenProtectionRemaining - deltaTime);
+            BlueSlowRemaining = Mathf.Max(0f, BlueSlowRemaining - deltaTime);
+            PurpleReverseRemaining = Mathf.Max(0f, PurpleReverseRemaining - deltaTime);
+
+            if (hadGreen != GreenProtectionActive || hadBlue != BlueSlowActive || hadPurple != PurpleReverseActive)
+            {
+                RefreshCoreEffectColor();
+            }
+
+            StatusEffectsChanged?.Invoke();
+        }
+
+        private void ResetStatusEffects()
+        {
+            GreenProtectionRemaining = 0f;
+            BlueSlowRemaining = 0f;
+            PurpleReverseRemaining = 0f;
+            coreController?.ClearEffectColor();
+            StatusEffectsChanged?.Invoke();
+        }
+
+        private void RefreshCoreEffectColor()
+        {
+            if (coreController == null)
+            {
+                return;
+            }
+
+            if (feedbackConfig == null)
+            {
+                coreController.ClearEffectColor();
+                return;
+            }
+
+            if (GreenProtectionActive)
+            {
+                coreController.SetEffectColor(feedbackConfig.greenProjectileColor);
+            }
+            else if (PurpleReverseActive)
+            {
+                coreController.SetEffectColor(feedbackConfig.purpleProjectileColor);
+            }
+            else if (BlueSlowActive)
+            {
+                coreController.SetEffectColor(feedbackConfig.blueProjectileColor);
+            }
+            else
+            {
+                coreController.ClearEffectColor();
+            }
+        }
+
+        private void PlaySafeCoreAbsorb(Vector3 impactPosition, ProjectileType projectileType)
+        {
+            Color color = feedbackConfig != null
+                ? feedbackConfig.GetProjectileColor(projectileType)
+                : Color.white;
+            blockBurstVfx?.PlayCoreAbsorbAt(impactPosition, color);
+            audioManager?.PlayBlock();
+        }
+
         private void EndRun(Vector3 impactPosition)
         {
             SetState(GameState.GameOver);
@@ -268,7 +444,7 @@ namespace ShieldGame
                 float duration = feedbackConfig != null ? feedbackConfig.coreDeathDuration : 0.32f;
                 float punchScale = feedbackConfig != null ? feedbackConfig.coreDeathPunchScale : 1.18f;
                 coreController.PlayDestroyed(duration, punchScale);
-                blockBurstVfx?.PlayCoreDeathAt(coreController.CenterPosition);
+                blockBurstVfx?.PlayCoreDeathAt(coreController.CenterPosition, coreController.CurrentColor);
                 presentationDelay = duration;
             }
             else

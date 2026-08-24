@@ -49,6 +49,41 @@ namespace ShieldGame
             float travelDuration,
             float worldSize)
         {
+            return Acquire(ProjectileType.Yellow, direction, spawn, shieldImpact, coreImpact, travelDuration, worldSize);
+        }
+
+        public ProjectileController Acquire(
+            ProjectileType projectileType,
+            AttackDirection direction,
+            Vector3 spawn,
+            Vector3 shieldImpact,
+            Vector3 coreImpact,
+            float travelDuration,
+            float worldSize)
+        {
+            return Acquire(
+                projectileType,
+                direction,
+                spawn,
+                shieldImpact,
+                coreImpact,
+                travelDuration,
+                worldSize,
+                Vector3.zero,
+                0f);
+        }
+
+        public ProjectileController Acquire(
+            ProjectileType projectileType,
+            AttackDirection direction,
+            Vector3 spawn,
+            Vector3 shieldImpact,
+            Vector3 coreImpact,
+            float travelDuration,
+            float worldSize,
+            Vector3 pathCenter,
+            float orangeOrbitRadius)
+        {
             if (!initialized)
             {
                 Initialize(GameManager.Instance);
@@ -56,8 +91,20 @@ namespace ShieldGame
 
             ProjectileController projectile = inactive.Count > 0 ? inactive.Pop() : CreateProjectile();
             active.Add(projectile);
-            Color color = feedbackConfig != null ? feedbackConfig.projectileColor : Color.yellow;
-            projectile.Activate(direction, spawn, shieldImpact, coreImpact, travelDuration, worldSize, color);
+            Color color = feedbackConfig != null ? feedbackConfig.GetProjectileColor(projectileType) : Color.yellow;
+            float orangeSwitchDuration = gameplayConfig != null ? gameplayConfig.orangeSwitchDuration : 0.50f;
+            projectile.Activate(
+                projectileType,
+                direction,
+                spawn,
+                shieldImpact,
+                coreImpact,
+                travelDuration,
+                worldSize,
+                color,
+                pathCenter,
+                orangeOrbitRadius,
+                orangeSwitchDuration);
             return projectile;
         }
 

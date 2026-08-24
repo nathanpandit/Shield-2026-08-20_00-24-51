@@ -10,10 +10,13 @@ namespace ShieldGame
         private Sequence destructionSequence;
         private Vector3 layoutScale = Vector3.one;
         private Color layoutColor = Color.white;
+        private Color effectColor = Color.white;
+        private bool effectColorActive;
 
         public Vector3 CenterPosition => transform.position;
         public bool IsDestructionPlaying => destructionSequence != null && destructionSequence.IsActive();
         public bool IsVisible => coreVisual != null && coreVisual.enabled && coreVisual.color.a > 0f;
+        public Color CurrentColor => effectColorActive ? effectColor : layoutColor;
 
         public void Configure(SpriteRenderer visual)
         {
@@ -28,13 +31,40 @@ namespace ShieldGame
             transform.localScale = layoutScale;
             if (coreVisual != null)
             {
+                coreVisual.color = CurrentColor;
+            }
+        }
+
+        public void SetEffectColor(Color color)
+        {
+            effectColor = color;
+            effectColorActive = true;
+            if (coreVisual != null && !IsDestructionPlaying)
+            {
+                coreVisual.color = CurrentColor;
+            }
+        }
+
+        public void ClearEffectColor()
+        {
+            effectColorActive = false;
+            if (coreVisual != null && !IsDestructionPlaying)
+            {
                 coreVisual.color = layoutColor;
             }
         }
 
         public void PlayDestroyed(float duration, float punchScale)
         {
-            ResetVisual();
+            destructionSequence?.Kill(false);
+            destructionSequence = null;
+            transform.localScale = layoutScale;
+            if (coreVisual != null)
+            {
+                coreVisual.enabled = true;
+                coreVisual.color = CurrentColor;
+            }
+
             float safeDuration = Mathf.Max(0.01f, duration);
             float punchDuration = safeDuration * 0.30f;
             float collapseDuration = safeDuration - punchDuration;
@@ -63,6 +93,7 @@ namespace ShieldGame
         {
             destructionSequence?.Kill(false);
             destructionSequence = null;
+            effectColorActive = false;
             transform.localScale = layoutScale;
             if (coreVisual != null)
             {

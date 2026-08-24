@@ -31,7 +31,7 @@ namespace ShieldGame
 
             if (gameManager.State == GameState.Playing && GameplayTapBeganThisFrame())
             {
-                shieldController.RotateClockwise();
+                gameManager.RotateShieldForTap();
                 OnGameplayTap?.Invoke();
             }
 
@@ -53,6 +53,11 @@ namespace ShieldGame
                 {
                     return true;
                 }
+            }
+
+            if (Input.GetKeyDown(KeyCode.LeftArrow) || Input.GetKeyDown(KeyCode.RightArrow))
+            {
+                return true;
             }
 
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
@@ -113,6 +118,12 @@ namespace ShieldGame
             if (Input.GetKeyDown(KeyCode.Alpha2)) gameManager.ForceNextAttack(AttackDirection.Right);
             if (Input.GetKeyDown(KeyCode.Alpha3)) gameManager.ForceNextAttack(AttackDirection.Bottom);
             if (Input.GetKeyDown(KeyCode.Alpha4)) gameManager.ForceNextAttack(AttackDirection.Left);
+            if (Input.GetKeyDown(KeyCode.Alpha5)) gameManager.ForceNextProjectileType(ProjectileType.Yellow);
+            if (Input.GetKeyDown(KeyCode.Alpha6)) gameManager.ForceNextProjectileType(ProjectileType.Green);
+            if (Input.GetKeyDown(KeyCode.Alpha7)) gameManager.ForceNextProjectileType(ProjectileType.Blue);
+            if (Input.GetKeyDown(KeyCode.Alpha8)) gameManager.ForceNextProjectileType(ProjectileType.Purple);
+            if (Input.GetKeyDown(KeyCode.Alpha9)) gameManager.ForceNextProjectileType(ProjectileType.Red);
+            if (Input.GetKeyDown(KeyCode.Alpha0)) gameManager.ForceNextProjectileType(ProjectileType.Orange);
             if (Input.GetKeyDown(KeyCode.LeftBracket)) gameManager.AdjustDebugScore(-1);
             if (Input.GetKeyDown(KeyCode.RightBracket)) gameManager.AdjustDebugScore(1);
             if (Input.GetKeyDown(KeyCode.F1)) gameManager.ToggleDebugOverlay();

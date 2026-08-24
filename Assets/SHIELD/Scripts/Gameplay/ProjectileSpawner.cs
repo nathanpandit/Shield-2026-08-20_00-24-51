@@ -29,6 +29,9 @@ namespace ShieldGame
         public bool HasPreviousScheduledImpact => hasPreviousScheduledImpact;
         public bool LastFairnessCushionApplied { get; private set; }
         public AttackDirection? PendingDirection => hasPendingAttack ? pendingAttack.direction : (AttackDirection?)null;
+        public ProjectileType? PendingProjectileType => hasPendingAttack ? pendingAttack.projectileType : (ProjectileType?)null;
+        public float PendingTravelDuration => hasPendingAttack ? pendingAttack.travelDuration : 0f;
+        public bool SpawningPaused => running && gameManager != null && gameManager.BlueSlowActive;
 
         public void Configure(GameplayConfig gameplay, DifficultyManager difficulty, AttackDirector director, ProjectilePool pool, ArenaLayout arena)
         {
@@ -79,9 +82,27 @@ namespace ShieldGame
             RecalculatePendingTiming(false);
         }
 
+        public void ForceNextProjectileType(ProjectileType projectileType)
+        {
+            if (!running || !hasPendingAttack)
+            {
+                return;
+            }
+
+            pendingAttack.projectileType = projectileType;
+            RecalculatePendingTiming(false);
+        }
+
         private void HandleGameplayTick(float deltaTime)
         {
             if (!running || !hasPendingAttack || gameManager.State != GameState.Playing)
+            {
+                return;
+            }
+
+            // Blue freezes the spawn clock itself. The pending attack retains its
+            // remaining delay, so expiration cannot release a catch-up burst.
+            if (SpawningPaused)
             {
                 return;
             }
@@ -99,11 +120,12 @@ namespace ShieldGame
             pendingAttack = new PendingAttack
             {
                 direction = gameplayConfig.firstAttackDirection,
+                projectileType = ProjectileType.Yellow,
                 jitterMultiplier = 1f,
                 fairnessRoll = 1f,
                 baseCandidateTime = gameplayConfig.initialSpawnDelay,
                 speed = ApplyWarmupSpeed(milestone.normalizedProjectileSpeed),
-                travelDuration = 1f / ApplyWarmupSpeed(milestone.normalizedProjectileSpeed),
+                travelDuration = GetTravelDuration(ApplyWarmupSpeed(milestone.normalizedProjectileSpeed), ProjectileType.Yellow),
                 spawnTime = gameplayConfig.initialSpawnDelay
             };
             hasPendingAttack = true;
@@ -114,14 +136,20 @@ namespace ShieldGame
         {
             PendingAttack attack = pendingAttack;
             hasPendingAttack = false;
+            AttackDirection visualSpawnDirection = attack.projectileType == ProjectileType.Orange
+                ? AttackDirectionUtility.Opposite(attack.direction)
+                : attack.direction;
 
             projectilePool.Acquire(
+                attack.projectileType,
                 attack.direction,
-                arenaLayout.GetSpawnPosition(attack.direction),
+                arenaLayout.GetSpawnPosition(visualSpawnDirection),
                 arenaLayout.GetShieldImpactPosition(attack.direction),
                 arenaLayout.GetCoreImpactPosition(attack.direction),
                 attack.travelDuration,
-                arenaLayout.ProjectileWorldSize);
+                arenaLayout.ProjectileWorldSize,
+                arenaLayout.Center,
+                arenaLayout.OrangeOrbitRadius);
 
             lastSpawnTime = runTime;
             lastScheduledImpactTime = runTime + attack.travelDuration;
@@ -143,12 +171,13 @@ namespace ShieldGame
             pendingAttack = new PendingAttack
             {
                 direction = attackDirector.GetNextDirection(milestone.patternFragmentChance),
+                projectileType = SelectNextProjectileType(),
                 jitterMultiplier = jitterMultiplier,
                 fairnessRoll = Random.value,
                 baseCandidateTime = runTime + interval,
-                speed = speed,
-                travelDuration = 1f / speed
+                speed = speed
             };
+            pendingAttack.travelDuration = GetTravelDuration(speed, pendingAttack.projectileType);
             hasPendingAttack = true;
             RecalculatePendingTiming(true);
         }
@@ -158,7 +187,7 @@ namespace ShieldGame
             DifficultyMilestone milestone = difficultyManager.CurrentMilestone;
             float speed = ApplyWarmupSpeed(milestone.normalizedProjectileSpeed);
             pendingAttack.speed = speed;
-            pendingAttack.travelDuration = 1f / speed;
+            pendingAttack.travelDuration = GetTravelDuration(speed, pendingAttack.projectileType);
 
             if (!preserveBaseCandidate)
             {
@@ -184,6 +213,47 @@ namespace ShieldGame
             }
 
             pendingAttack.spawnTime = candidateSpawnTime;
+        }
+
+        private ProjectileType SelectNextProjectileType()
+        {
+            if (spawnedAttackCount < gameplayConfig.specialProjectileWarmupCount)
+            {
+                return ProjectileType.Yellow;
+            }
+
+            float totalWeight = 0f;
+            for (int i = 0; i <= (int)ProjectileType.Orange; i++)
+            {
+                totalWeight += gameplayConfig.GetProjectileWeight((ProjectileType)i);
+            }
+
+            if (totalWeight <= Mathf.Epsilon)
+            {
+                return ProjectileType.Yellow;
+            }
+
+            float roll = Random.value * totalWeight;
+            for (int i = 0; i <= (int)ProjectileType.Orange; i++)
+            {
+                ProjectileType candidate = (ProjectileType)i;
+                roll -= gameplayConfig.GetProjectileWeight(candidate);
+                if (roll <= 0f)
+                {
+                    return candidate;
+                }
+            }
+
+            return ProjectileType.Orange;
+        }
+
+        private float GetTravelDuration(float normalizedSpeed, ProjectileType projectileType)
+        {
+            float typeSpeedMultiplier = gameplayConfig.GetProjectileSpeedMultiplier(projectileType);
+            float radialTravelDuration = 1f / Mathf.Max(0.01f, normalizedSpeed * typeSpeedMultiplier);
+            return projectileType == ProjectileType.Orange
+                ? radialTravelDuration + Mathf.Max(0.01f, gameplayConfig.orangeSwitchDuration)
+                : radialTravelDuration;
         }
 
         private void HandleMilestoneChanged(DifficultyMilestone milestone)
@@ -224,6 +294,7 @@ namespace ShieldGame
         private struct PendingAttack
         {
             public AttackDirection direction;
+            public ProjectileType projectileType;
             public float speed;
             public float travelDuration;
             public float jitterMultiplier;

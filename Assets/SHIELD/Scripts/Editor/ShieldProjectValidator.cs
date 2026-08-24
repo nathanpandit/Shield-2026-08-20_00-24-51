@@ -48,19 +48,33 @@ namespace ShieldGame.Editor
         private static List<string> Validate()
         {
             var errors = new List<string>();
-            RequireAsset<GameplayConfig>("Assets/SHIELD/ScriptableObjects/GameplayConfig.asset", errors);
+            GameplayConfig gameplay = RequireAsset<GameplayConfig>("Assets/SHIELD/ScriptableObjects/GameplayConfig.asset", errors);
             DifficultyConfig difficulty = RequireAsset<DifficultyConfig>("Assets/SHIELD/ScriptableObjects/DifficultyConfig.asset", errors);
             RequireAsset<FeedbackConfig>("Assets/SHIELD/ScriptableObjects/FeedbackConfig.asset", errors);
             RequireAsset<GameObject>("Assets/SHIELD/Prefabs/Gameplay/Core.prefab", errors);
             RequireAsset<GameObject>("Assets/SHIELD/Prefabs/Gameplay/Shield.prefab", errors);
             RequireAsset<GameObject>("Assets/SHIELD/Prefabs/Gameplay/Projectile.prefab", errors);
-            RequireAsset<GameObject>("Assets/SHIELD/Prefabs/VFX/BlockBurstVFX.prefab", errors);
+            GameObject blockBurstPrefab = RequireAsset<GameObject>("Assets/SHIELD/Prefabs/VFX/BlockBurstVFX.prefab", errors);
             RequireAsset<SceneAsset>(HomeScenePath, errors);
             RequireAsset<SceneAsset>(GameScenePath, errors);
 
             if (difficulty != null && !difficulty.ValidateConfiguration(out string configMessage))
             {
                 errors.Add(configMessage);
+            }
+
+            if (gameplay != null)
+            {
+                ValidateProjectileTypeConfiguration(gameplay, errors);
+            }
+
+            if (blockBurstPrefab != null)
+            {
+                ParticleSystemRenderer renderer = blockBurstPrefab.GetComponent<ParticleSystemRenderer>();
+                if (renderer == null || renderer.sharedMaterial == null)
+                {
+                    errors.Add("Block burst particle renderer must use a material that supports projectile tint colors.");
+                }
             }
 
             ValidateUpdateRule(errors);
@@ -71,6 +85,52 @@ namespace ShieldGame.Editor
             }
 
             return errors;
+        }
+
+        private static void ValidateProjectileTypeConfiguration(GameplayConfig gameplay, List<string> errors)
+        {
+            float totalWeight = 0f;
+            for (int i = 0; i <= (int)ProjectileType.Orange; i++)
+            {
+                totalWeight += gameplay.GetProjectileWeight((ProjectileType)i);
+            }
+
+            if (totalWeight <= Mathf.Epsilon)
+            {
+                errors.Add("Projectile type weights must contain at least one positive value.");
+            }
+
+            if (gameplay.specialProjectileWarmupCount < 0)
+            {
+                errors.Add("Projectile type warmup count cannot be negative.");
+            }
+
+            if (gameplay.greenProjectileSpeedMultiplier < 1f)
+            {
+                errors.Add("Green projectile speed multiplier must be at least 1.0.");
+            }
+
+            if (gameplay.blueProjectileSpeedMultiplier <= 0f || gameplay.blueProjectileSpeedMultiplier > 1f)
+            {
+                errors.Add("Blue projectile speed multiplier must be greater than zero and at most 1.0.");
+            }
+
+            if (gameplay.greenProtectionDuration <= 0f ||
+                gameplay.blueSlowDuration <= 0f ||
+                gameplay.purpleReverseDuration <= 0f ||
+                gameplay.orangeSwitchDuration <= 0f)
+            {
+                errors.Add("Projectile effect and path durations must be greater than zero.");
+            }
+
+            float minimumOrangeSwitchRadius = gameplay.shieldRadiusNormalized
+                + gameplay.shieldThicknessNormalized * 0.5f
+                + gameplay.projectileSizeNormalized;
+            if (gameplay.orangeSwitchRadiusNormalized <= minimumOrangeSwitchRadius ||
+                gameplay.orangeSwitchRadiusNormalized >= 0.5f)
+            {
+                errors.Add("Orange switch radius must be outside the shield and inside the projectile spawn boundary.");
+            }
         }
 
         private static T RequireAsset<T>(string path, List<string> errors) where T : Object

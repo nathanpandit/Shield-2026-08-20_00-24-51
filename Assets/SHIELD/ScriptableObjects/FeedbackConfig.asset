@@ -13,9 +13,14 @@ MonoBehaviour:
   m_Name: FeedbackConfig
   m_EditorClassIdentifier: Assembly-CSharp::ShieldGame.FeedbackConfig
   backgroundColor: {r: 0.025, g: 0.035, b: 0.075, a: 1}
-  coreColor: {r: 0.35, g: 1, b: 0.9, a: 1}
+  coreColor: {r: 1, g: 1, b: 1, a: 1}
   shieldColor: {r: 0.95, g: 0.33, b: 0.78, a: 1}
   projectileColor: {r: 1, g: 0.88, b: 0.3, a: 1}
+  greenProjectileColor: {r: 0.3, g: 1, b: 0.45, a: 1}
+  blueProjectileColor: {r: 0.25, g: 0.65, b: 1, a: 1}
+  purpleProjectileColor: {r: 0.72, g: 0.35, b: 1, a: 1}
+  redProjectileColor: {r: 1, g: 0.2, b: 0.2, a: 1}
+  orangeProjectileColor: {r: 1, g: 0.45, b: 0.08, a: 1}
   scoreColor: {r: 0.88, g: 0.97, b: 1, a: 1}
   milestoneHighlightColor: {r: 1, g: 0.43, b: 0.82, a: 1}
   blockBurstDuration: 0.22
@@ -27,4 +32,5 @@ MonoBehaviour:
   deathClip: {fileID: 0}
   uiClip: {fileID: 0}
   shieldRotationClip: {fileID: 0}
+  orangeSwitchClip: {fileID: 0}
   musicClip: {fileID: 0}

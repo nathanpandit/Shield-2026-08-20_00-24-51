@@ -40,6 +40,7 @@ namespace ShieldGame
         public void PlayDeath() => PlayOneShot(feedbackConfig != null ? feedbackConfig.deathClip : null);
         public void PlayUi() => PlayOneShot(feedbackConfig != null ? feedbackConfig.uiClip : null);
         public void PlayShieldRotation() => PlayOneShot(feedbackConfig != null ? feedbackConfig.shieldRotationClip : null);
+        public void PlayOrangeSwitch() => PlayOneShot(feedbackConfig != null ? feedbackConfig.orangeSwitchClip : null);
 
         public void SetSoundEnabled(bool enabled)
         {

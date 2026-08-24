@@ -73,7 +73,7 @@ namespace ShieldGame.Editor
                 GameObject corePrefab = BuildCorePrefab(circle);
                 GameObject shieldPrefab = BuildShieldPrefab(gameplay, feedback, lineMaterial);
                 GameObject projectilePrefab = BuildProjectilePrefab(square);
-                GameObject blockVfxPrefab = BuildBlockVfxPrefab(feedback);
+                GameObject blockVfxPrefab = BuildBlockVfxPrefab(feedback, lineMaterial);
 
                 BuildHomeScene(font, square, feedback);
                 BuildGameScene(gameplay, difficulty, feedback, font, square, corePrefab, shieldPrefab, projectilePrefab, blockVfxPrefab);
@@ -308,7 +308,7 @@ namespace ShieldGame.Editor
             return prefab;
         }
 
-        private static GameObject BuildBlockVfxPrefab(FeedbackConfig feedback)
+        private static GameObject BuildBlockVfxPrefab(FeedbackConfig feedback, Material material)
         {
             var root = new GameObject("BlockBurstVFX");
             ParticleSystem particles = root.AddComponent<ParticleSystem>();
@@ -328,6 +328,7 @@ namespace ShieldGame.Editor
             shape.shapeType = ParticleSystemShapeType.Circle;
             shape.radius = 0.04f;
             ParticleSystemRenderer renderer = root.GetComponent<ParticleSystemRenderer>();
+            renderer.sharedMaterial = material;
             renderer.sortingOrder = 8;
             BlockBurstVFX controller = root.AddComponent<BlockBurstVFX>();
             controller.Configure(particles, feedback);
@@ -408,7 +409,10 @@ namespace ShieldGame.Editor
             input.Configure(manager, shield);
 
             RectTransform safeArea = CreateCanvas("Canvas");
-            TMP_Text activeScore = CreateText(safeArea, "ScoreText", "0", font, 76, new Vector2(0.5f, 1f), new Vector2(460f, 110f), feedback.scoreColor, new Vector2(0f, -90f));
+            TMP_Text activeScore = CreateText(safeArea, "ScoreText", "0", font, 42, new Vector2(0.5f, 0.5f), new Vector2(106f, 78f), Color.black);
+            activeScore.enableAutoSizing = true;
+            activeScore.fontSizeMin = 22f;
+            activeScore.fontSizeMax = 42f;
             Button pauseButton = CreateButton(safeArea, "PauseButton", "II", font, square, new Vector2(1f, 1f), new Vector2(100f, 100f), new Color(0.12f, 0.19f, 0.32f, 0.95f), out _, new Vector2(-75f, -75f));
 
             GameObject pausePanel = CreateOverlay(safeArea, "PauseOverlay", square);
