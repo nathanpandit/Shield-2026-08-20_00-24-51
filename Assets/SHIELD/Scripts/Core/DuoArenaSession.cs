@@ -133,6 +133,18 @@ namespace ShieldGame
             coordinator?.PlayShieldRotation();
         }
 
+        public void GrantDebugGreenProtection(float duration)
+        {
+            if (State != GameState.Playing)
+            {
+                return;
+            }
+
+            GreenProtectionRemaining = Mathf.Max(0f, duration);
+            RefreshCoreEffectColor();
+            StatusEffectsChanged?.Invoke();
+        }
+
         public void HandleProjectileBlocked(ProjectileType projectileType, Vector3 impactPosition)
         {
             if (State != GameState.Playing)
@@ -291,7 +303,7 @@ namespace ShieldGame
         {
             Color color = feedbackConfig != null ? feedbackConfig.GetProjectileColor(projectileType) : Color.white;
             blockBurstVfx?.PlayCoreAbsorbAt(impactPosition, color);
-            coordinator?.PlayBlock();
+            coordinator?.PlayCoreAbsorb();
         }
     }
 }

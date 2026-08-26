@@ -31,6 +31,8 @@ MonoBehaviour:
   orangeSwitchDuration: 0.5
   orangeSwitchRadiusNormalized: 0.25
   greenProjectileSpeedMultiplier: 2
+  duoWhiteProjectileChance: 0.01
+  duoWhiteCurveDuration: 0.5
   greenProtectionDuration: 10
   blueSlowDuration: 1.5
   duoCrossArenaImpactGap: 0.1

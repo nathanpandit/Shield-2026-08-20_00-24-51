@@ -51,7 +51,10 @@ namespace ShieldGame.Editor
             var errors = new List<string>();
             GameplayConfig gameplay = RequireAsset<GameplayConfig>("Assets/SHIELD/ScriptableObjects/GameplayConfig.asset", errors);
             DifficultyConfig difficulty = RequireAsset<DifficultyConfig>("Assets/SHIELD/ScriptableObjects/DifficultyConfig.asset", errors);
-            RequireAsset<FeedbackConfig>("Assets/SHIELD/ScriptableObjects/FeedbackConfig.asset", errors);
+            FeedbackConfig feedback = RequireAsset<FeedbackConfig>("Assets/SHIELD/ScriptableObjects/FeedbackConfig.asset", errors);
+            AudioClip menuTheme = RequireAsset<AudioClip>("Assets/SHIELD/Audio/MainMenuTheme.mp3", errors);
+            AudioClip blockSound = RequireAsset<AudioClip>("Assets/SHIELD/Audio/ProjectileBlock.mp3", errors);
+            AudioClip deathSound = RequireAsset<AudioClip>("Assets/SHIELD/Audio/CoreDestroyed.mp3", errors);
             RequireAsset<GameObject>("Assets/SHIELD/Prefabs/Gameplay/Core.prefab", errors);
             RequireAsset<GameObject>("Assets/SHIELD/Prefabs/Gameplay/Shield.prefab", errors);
             RequireAsset<GameObject>("Assets/SHIELD/Prefabs/Gameplay/Projectile.prefab", errors);
@@ -70,6 +73,24 @@ namespace ShieldGame.Editor
                 ValidateProjectileTypeConfiguration(gameplay, errors);
             }
 
+            if (feedback != null)
+            {
+                if (feedback.musicClip != menuTheme)
+                {
+                    errors.Add("FeedbackConfig musicClip must reference the Home menu theme.");
+                }
+
+                if (feedback.blockClip != blockSound)
+                {
+                    errors.Add("FeedbackConfig blockClip must reference the projectile block sound.");
+                }
+
+                if (feedback.deathClip != deathSound)
+                {
+                    errors.Add("FeedbackConfig deathClip must reference the core-destruction sound.");
+                }
+            }
+
             if (blockBurstPrefab != null)
             {
                 ParticleSystemRenderer renderer = blockBurstPrefab.GetComponent<ParticleSystemRenderer>();
@@ -81,6 +102,11 @@ namespace ShieldGame.Editor
 
             ValidateUpdateRule(errors);
             ValidateBuildSettings(errors);
+            if (File.Exists(HomeScenePath))
+            {
+                ValidateHomeScene(feedback, errors);
+            }
+
             if (File.Exists(GameScenePath))
             {
                 ValidateGameScene(errors);
@@ -92,6 +118,24 @@ namespace ShieldGame.Editor
             }
 
             return errors;
+        }
+
+        private static void ValidateHomeScene(FeedbackConfig feedback, List<string> errors)
+        {
+            Scene scene = EditorSceneManager.OpenScene(HomeScenePath, OpenSceneMode.Single);
+            HomeUIController[] controllers = Object.FindObjectsByType<HomeUIController>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            if (controllers.Length != 1)
+            {
+                errors.Add("Home scene must contain exactly one HomeUIController.");
+                return;
+            }
+
+            var serializedController = new SerializedObject(controllers[0]);
+            SerializedProperty feedbackProperty = serializedController.FindProperty("feedbackConfig");
+            if (feedbackProperty == null || feedbackProperty.objectReferenceValue != feedback)
+            {
+                errors.Add("HomeUIController must reference FeedbackConfig for menu music.");
+            }
         }
 
         private static void ValidateProjectileTypeConfiguration(GameplayConfig gameplay, List<string> errors)
@@ -127,10 +171,16 @@ namespace ShieldGame.Editor
                 errors.Add("DUO cross-arena impact gap cannot be negative.");
             }
 
+            if (gameplay.duoWhiteProjectileChance < 0f || gameplay.duoWhiteProjectileChance > 1f)
+            {
+                errors.Add("DUO White projectile chance must be between zero and one.");
+            }
+
             if (gameplay.greenProtectionDuration <= 0f ||
                 gameplay.blueSlowDuration <= 0f ||
                 gameplay.purpleReverseDuration <= 0f ||
-                gameplay.orangeSwitchDuration <= 0f)
+                gameplay.orangeSwitchDuration <= 0f ||
+                gameplay.duoWhiteCurveDuration <= 0f)
             {
                 errors.Add("Projectile effect and path durations must be greater than zero.");
             }
@@ -226,6 +276,7 @@ namespace ShieldGame.Editor
             int spawners = 0;
             int pools = 0;
             int scores = 0;
+            int whiteProjectiles = 0;
             int inputManagers = 0;
             int audioListeners = 0;
             int rigidbodies = 0;
@@ -250,6 +301,7 @@ namespace ShieldGame.Editor
                     if (component is ProjectileSpawner) spawners++;
                     if (component is ProjectilePool) pools++;
                     if (component is ScoreManager) scores++;
+                    if (component is DuoWhiteProjectileController) whiteProjectiles++;
                     if (component is InputManager) inputManagers++;
                     if (component is AudioListener) audioListeners++;
                     if (component is Rigidbody2D) rigidbodies++;
@@ -264,6 +316,7 @@ namespace ShieldGame.Editor
             {
                 errors.Add("DuoGame scene must contain two complete arena simulations.");
             }
+            if (whiteProjectiles != 1) errors.Add("DuoGame scene must contain exactly one DUO White projectile controller.");
             if (inputManagers != 1) errors.Add("DuoGame scene must contain exactly one InputManager.");
             if (audioListeners != 1) errors.Add("DuoGame scene must contain exactly one AudioListener.");
             if (rigidbodies != 0 || colliders != 0) errors.Add("DuoGame scene contains gameplay physics components.");

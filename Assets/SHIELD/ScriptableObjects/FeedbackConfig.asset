@@ -21,6 +21,7 @@ MonoBehaviour:
   purpleProjectileColor: {r: 0.72, g: 0.35, b: 1, a: 1}
   redProjectileColor: {r: 1, g: 0.2, b: 0.2, a: 1}
   orangeProjectileColor: {r: 1, g: 0.45, b: 0.08, a: 1}
+  whiteProjectileColor: {r: 1, g: 1, b: 1, a: 1}
   scoreColor: {r: 0.88, g: 0.97, b: 1, a: 1}
   milestoneHighlightColor: {r: 1, g: 0.43, b: 0.82, a: 1}
   blockBurstDuration: 0.22
@@ -28,9 +29,11 @@ MonoBehaviour:
   coreDeathDuration: 0.32
   coreDeathPunchScale: 1.18
   scoreMilestoneTweenDuration: 0.22
-  blockClip: {fileID: 0}
-  deathClip: {fileID: 0}
+  blockClip: {fileID: 8300000, guid: 6525bf11006f1b34792f84fa09e2731c, type: 3}
+  coreAbsorbClip: {fileID: 0}
+  deathClip: {fileID: 8300000, guid: d4e18f07b3574e2291f27ef15fc3d449, type: 3}
   uiClip: {fileID: 0}
   shieldRotationClip: {fileID: 0}
   orangeSwitchClip: {fileID: 0}
-  musicClip: {fileID: 0}
+  whiteCrossingClip: {fileID: 0}
+  musicClip: {fileID: 8300000, guid: 041734db901f4ff4fa9a7778dad83fbd, type: 3}

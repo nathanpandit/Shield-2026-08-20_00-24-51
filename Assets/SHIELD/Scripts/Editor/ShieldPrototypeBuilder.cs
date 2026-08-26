@@ -356,7 +356,7 @@ namespace ShieldGame.Editor
 
             var controllerObject = new GameObject("HomeController");
             HomeUIController controller = controllerObject.AddComponent<HomeUIController>();
-            controller.Configure(best, duoBest, play, duo, sound, soundLabel, haptic, hapticLabel);
+            controller.Configure(best, duoBest, play, duo, sound, soundLabel, haptic, hapticLabel, feedback);
             CreateEventSystem();
             EditorSceneManager.SaveScene(scene, HomeScenePath);
         }
@@ -472,13 +472,21 @@ namespace ShieldGame.Editor
 
             DuoLayoutController duoLayout = CreateManager<DuoLayoutController>(gameRoot.transform, "DuoLayoutController");
             duoLayout.Configure(first.Layout, second.Layout);
+            var whiteProjectileObject = new GameObject("DuoWhiteProjectile");
+            whiteProjectileObject.transform.SetParent(gameplayRoot.transform, false);
+            SpriteRenderer whiteProjectileRenderer = whiteProjectileObject.AddComponent<SpriteRenderer>();
+            whiteProjectileRenderer.sprite = square;
+            whiteProjectileRenderer.sortingOrder = 3;
+            DuoWhiteProjectileController whiteProjectile = whiteProjectileObject.AddComponent<DuoWhiteProjectileController>();
+            whiteProjectile.Configure(whiteProjectileRenderer);
+            whiteProjectileObject.SetActive(false);
             ShieldAudioManager audio = CreateManager<ShieldAudioManager>(gameRoot.transform, "AudioManager");
             AudioSource musicSource = audio.gameObject.AddComponent<AudioSource>();
             AudioSource sfxSource = audio.gameObject.AddComponent<AudioSource>();
             audio.Configure(musicSource, sfxSource);
             HapticManager haptics = CreateManager<HapticManager>(gameRoot.transform, "HapticManager");
             DuoGameManager manager = CreateManager<DuoGameManager>(gameRoot.transform, "DuoGameManager");
-            manager.Configure(gameplay, feedback, first.Session, second.Session, duoLayout, audio, haptics);
+            manager.Configure(gameplay, feedback, first.Session, second.Session, duoLayout, whiteProjectile, audio, haptics);
             InputManager input = CreateManager<InputManager>(gameRoot.transform, "InputManager");
             input.ConfigureDuo(manager);
 

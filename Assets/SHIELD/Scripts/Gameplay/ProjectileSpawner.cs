@@ -34,6 +34,7 @@ namespace ShieldGame
         public AttackDirection? PendingDirection => hasPendingAttack ? pendingAttack.direction : (AttackDirection?)null;
         public ProjectileType? PendingProjectileType => hasPendingAttack ? pendingAttack.projectileType : (ProjectileType?)null;
         public float PendingTravelDuration => hasPendingAttack ? pendingAttack.travelDuration : 0f;
+        public int SpawnedAttackCount => spawnedAttackCount;
         public bool SpawningPaused => running && gameSession != null && gameSession.BlueSlowActive;
 
         public void Configure(GameplayConfig gameplay, DifficultyManager difficulty, AttackDirector director, ProjectilePool pool, ArenaLayout arena)
@@ -101,6 +102,10 @@ namespace ShieldGame
             }
 
             pendingAttack.projectileType = projectileType;
+            if (projectileType == ProjectileType.White && duoGameManager != null)
+            {
+                pendingAttack.direction = duoGameManager.GetWhiteTravelDirection(duoArenaIndex);
+            }
             RecalculatePendingTiming(false);
         }
 
@@ -164,28 +169,52 @@ namespace ShieldGame
         private void SpawnPendingAttack()
         {
             PendingAttack attack = pendingAttack;
-            if (duoGameManager != null &&
-                !duoGameManager.TryReserveImpact(duoArenaIndex, attack.travelDuration, spawnedAttackCount == 0, out float delay))
+            if (attack.projectileType == ProjectileType.White &&
+                (duoGameManager == null || !duoGameManager.CanSpawnWhiteProjectile(duoArenaIndex)))
+            {
+                pendingAttack.spawnTime += 0.05f;
+                return;
+            }
+
+            float delay = 0f;
+            bool impactReserved = duoGameManager == null ||
+                (attack.projectileType == ProjectileType.White
+                    ? duoGameManager.TryReserveWhiteImpact(attack.travelDuration, out delay)
+                    : duoGameManager.TryReserveImpact(duoArenaIndex, attack.travelDuration, spawnedAttackCount == 0, out delay));
+            if (!impactReserved)
             {
                 pendingAttack.spawnTime += Mathf.Max(0f, delay);
                 return;
             }
 
             hasPendingAttack = false;
+            if (attack.projectileType == ProjectileType.White)
+            {
+                if (!duoGameManager.TrySpawnWhiteProjectile(duoArenaIndex, attack.speed))
+                {
+                    hasPendingAttack = true;
+                    pendingAttack.spawnTime += 0.05f;
+                    return;
+                }
+            }
+
             AttackDirection visualSpawnDirection = attack.projectileType == ProjectileType.Orange
                 ? AttackDirectionUtility.Opposite(attack.direction)
                 : attack.direction;
 
-            projectilePool.Acquire(
-                attack.projectileType,
-                attack.direction,
-                arenaLayout.GetSpawnPosition(visualSpawnDirection),
-                arenaLayout.GetShieldImpactPosition(attack.direction),
-                arenaLayout.GetCoreImpactPosition(attack.direction),
-                attack.travelDuration,
-                arenaLayout.ProjectileWorldSize,
-                arenaLayout.Center,
-                arenaLayout.OrangeOrbitRadius);
+            if (attack.projectileType != ProjectileType.White)
+            {
+                projectilePool.Acquire(
+                    attack.projectileType,
+                    attack.direction,
+                    arenaLayout.GetSpawnPosition(visualSpawnDirection),
+                    arenaLayout.GetShieldImpactPosition(attack.direction),
+                    arenaLayout.GetCoreImpactPosition(attack.direction),
+                    attack.travelDuration,
+                    arenaLayout.ProjectileWorldSize,
+                    arenaLayout.Center,
+                    arenaLayout.OrangeOrbitRadius);
+            }
 
             lastSpawnTime = runTime;
             lastScheduledImpactTime = runTime + attack.travelDuration;
@@ -204,10 +233,14 @@ namespace ShieldGame
             float interval = ApplyWarmupInterval(milestone.baseSpawnInterval) * jitterMultiplier;
             float speed = ApplyWarmupSpeed(milestone.normalizedProjectileSpeed);
 
+            ProjectileType projectileType = SelectNextProjectileType();
+            AttackDirection direction = projectileType == ProjectileType.White && duoGameManager != null
+                ? duoGameManager.GetWhiteTravelDirection(duoArenaIndex)
+                : attackDirector.GetNextDirection(milestone.patternFragmentChance);
             pendingAttack = new PendingAttack
             {
-                direction = attackDirector.GetNextDirection(milestone.patternFragmentChance),
-                projectileType = SelectNextProjectileType(),
+                direction = direction,
+                projectileType = projectileType,
                 jitterMultiplier = jitterMultiplier,
                 fairnessRoll = Random.value,
                 baseCandidateTime = runTime + interval,
@@ -258,6 +291,13 @@ namespace ShieldGame
                 return ProjectileType.Yellow;
             }
 
+            // White is a rare DUO-only replacement. Keeping it outside the ordinary
+            // weighted loop makes SOLO structurally unable to select it.
+            if (duoGameManager != null && duoGameManager.TrySelectWhiteProjectile(duoArenaIndex))
+            {
+                return ProjectileType.White;
+            }
+
             float totalWeight = 0f;
             for (int i = 0; i <= (int)ProjectileType.Orange; i++)
             {
@@ -285,6 +325,11 @@ namespace ShieldGame
 
         private float GetTravelDuration(float normalizedSpeed, ProjectileType projectileType)
         {
+            if (projectileType == ProjectileType.White && duoGameManager != null)
+            {
+                return duoGameManager.GetWhiteTravelDuration(duoArenaIndex, normalizedSpeed);
+            }
+
             float typeSpeedMultiplier = gameplayConfig.GetProjectileSpeedMultiplier(projectileType);
             float radialTravelDuration = 1f / Mathf.Max(0.01f, normalizedSpeed * typeSpeedMultiplier);
             return projectileType == ProjectileType.Orange

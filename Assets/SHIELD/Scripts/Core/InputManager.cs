@@ -34,6 +34,11 @@ namespace ShieldGame
         {
             if (duoGameManager != null)
             {
+                if (Input.GetKeyDown(KeyCode.Escape))
+                {
+                    duoGameManager.TogglePause();
+                }
+
                 UpdateDuoInput();
                 duoGameManager.Tick(Time.deltaTime);
                 return;
@@ -42,6 +47,11 @@ namespace ShieldGame
             if (gameManager == null)
             {
                 return;
+            }
+
+            if (Input.GetKeyDown(KeyCode.Escape))
+            {
+                gameManager.TogglePause();
             }
 
             if (gameManager.State == GameState.Playing && GameplayTapBeganThisFrame())
@@ -70,17 +80,17 @@ namespace ShieldGame
                     OnGameplayTap?.Invoke();
                 }
 
-                // Both keys are checked independently so two same-frame presses rotate
-                // both shields. Space deliberately has no DUO binding.
-                if (Input.GetKeyDown(KeyCode.LeftArrow))
+                // DUO deliberately uses different keyboard groups for the two boards.
+                // Space plus either arrow in the same frame can rotate both boards.
+                if (Input.GetKeyDown(KeyCode.Space))
                 {
-                    duoGameManager.RotateArena(0);
+                    duoGameManager.RotateArena(GetDuoArenaIndex(KeyCode.Space));
                     OnGameplayTap?.Invoke();
                 }
 
-                if (Input.GetKeyDown(KeyCode.RightArrow))
+                if (Input.GetKeyDown(KeyCode.LeftArrow) || Input.GetKeyDown(KeyCode.RightArrow))
                 {
-                    duoGameManager.RotateArena(1);
+                    duoGameManager.RotateArena(GetDuoArenaIndex(KeyCode.LeftArrow));
                     OnGameplayTap?.Invoke();
                 }
             }
@@ -90,7 +100,24 @@ namespace ShieldGame
             {
                 duoGameManager.BeginRun();
             }
+
+            if (Input.GetKeyDown(KeyCode.G))
+            {
+                duoGameManager.GrantDebugGreenProtectionToAll();
+            }
+#else
+            if (duoGameManager.DebugFeaturesAvailable && Input.GetKeyDown(KeyCode.G))
+            {
+                duoGameManager.GrantDebugGreenProtectionToAll();
+            }
 #endif
+        }
+
+        public static int GetDuoArenaIndex(KeyCode key)
+        {
+            if (key == KeyCode.Space) return 0;
+            if (key == KeyCode.LeftArrow || key == KeyCode.RightArrow) return 1;
+            return -1;
         }
 
         private static bool GameplayTapBeganThisFrame()
@@ -168,6 +195,7 @@ namespace ShieldGame
         {
             if (Input.GetKeyDown(KeyCode.R)) gameManager.BeginRun();
             if (Input.GetKeyDown(KeyCode.I)) gameManager.ToggleDebugInvincibility();
+            if (Input.GetKeyDown(KeyCode.G)) gameManager.GrantDebugGreenProtection();
             if (Input.GetKeyDown(KeyCode.Alpha1)) gameManager.ForceNextAttack(AttackDirection.Top);
             if (Input.GetKeyDown(KeyCode.Alpha2)) gameManager.ForceNextAttack(AttackDirection.Right);
             if (Input.GetKeyDown(KeyCode.Alpha3)) gameManager.ForceNextAttack(AttackDirection.Bottom);

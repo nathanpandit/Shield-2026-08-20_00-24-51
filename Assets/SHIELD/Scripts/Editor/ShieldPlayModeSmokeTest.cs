@@ -58,11 +58,14 @@ namespace ShieldGame.Editor
 
                 manager.BeginRun();
                 Require(manager.State == GameState.Playing, "Run did not start in Playing state.");
+                Require(manager.FeedbackConfig.deathClip != null && manager.FeedbackConfig.deathClip.name == "CoreDestroyed",
+                    "The SOLO core-destruction sound was not configured.");
                 Require(manager.Core != null, "CoreController was not wired to GameManager.");
                 Require(manager.Shield.LogicalDirection == AttackDirection.Top, "Shield did not start at Top.");
                 Require(manager.Score.CurrentScore == 0, "Score did not start at zero.");
                 Require(manager.ProjectilePool.ActiveCount == 0, "Pool was not empty before the initial delay.");
                 ValidateCenteredScoreHud(manager);
+                ValidateDebugGreenProtection(manager);
 
                 manager.Shield.RotateClockwise();
                 manager.Shield.RotateClockwise();
@@ -223,10 +226,12 @@ namespace ShieldGame.Editor
             manager.ProjectilePool.ReturnAll();
 
             float pausedBlueTime = manager.BlueSlowRemaining;
-            manager.PauseGame();
+            manager.TogglePause();
+            Require(manager.State == GameState.Paused, "The SOLO pause toggle did not pause the run.");
             manager.Tick(1f);
             Require(Mathf.Approximately(manager.BlueSlowRemaining, pausedBlueTime), "Effect timer advanced while paused.");
-            manager.ResumeGame();
+            manager.TogglePause();
+            Require(manager.State == GameState.Playing, "The SOLO pause toggle did not resume the run.");
 
             manager.BeginRun();
             float pendingSpawnDelay = manager.Spawner.TimeUntilNextSpawn;
@@ -605,6 +610,27 @@ namespace ShieldGame.Editor
         {
             GameObject canvas = GameObject.Find("Canvas");
             return canvas != null ? canvas.transform.Find("SafeArea/EffectTimers") : null;
+        }
+
+        private static void ValidateDebugGreenProtection(GameManager manager)
+        {
+            manager.GrantDebugGreenProtection();
+            Require(manager.GreenProtectionActive && Mathf.Abs(manager.GreenProtectionRemaining - 10f) < 0.001f,
+                "SOLO debug Green did not grant exactly ten seconds of protection.");
+            Require(manager.Score.CurrentScore == 0,
+                "SOLO debug Green incorrectly awarded score.");
+
+            manager.Tick(0.40f);
+            Require(manager.GreenProtectionRemaining < 10f,
+                "SOLO debug Green timer did not advance during play.");
+            manager.GrantDebugGreenProtection();
+            Require(Mathf.Abs(manager.GreenProtectionRemaining - 10f) < 0.001f,
+                "Pressing the SOLO debug Green command again did not refresh its timer.");
+
+            manager.HandleProjectileMissed(ProjectileType.Red, AttackDirection.Top, manager.Core.CenterPosition);
+            Require(manager.State == GameState.GameOver,
+                "SOLO debug Green incorrectly protected the core from Red.");
+            manager.BeginRun();
         }
 
         private static bool ColorsApproximately(Color a, Color b)

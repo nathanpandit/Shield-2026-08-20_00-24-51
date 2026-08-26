@@ -18,7 +18,9 @@ namespace ShieldGame
             sfxSource = sfx;
         }
 
-        public void Initialize(IPersistenceService persistenceService, FeedbackConfig feedback)
+        public AudioClip ActiveMusicClip => musicSource != null ? musicSource.clip : null;
+
+        public void Initialize(IPersistenceService persistenceService, FeedbackConfig feedback, bool playConfiguredMusic)
         {
             persistence = persistenceService;
             feedbackConfig = feedback;
@@ -28,7 +30,9 @@ namespace ShieldGame
                 musicSource.loop = true;
                 musicSource.playOnAwake = false;
                 musicSource.volume = 0.35f;
-                musicSource.clip = feedbackConfig != null ? feedbackConfig.musicClip : null;
+                musicSource.clip = playConfiguredMusic && feedbackConfig != null
+                    ? feedbackConfig.musicClip
+                    : null;
                 if (SoundEnabled && musicSource.clip != null)
                 {
                     musicSource.Play();
@@ -37,10 +41,12 @@ namespace ShieldGame
         }
 
         public void PlayBlock() => PlayOneShot(feedbackConfig != null ? feedbackConfig.blockClip : null);
+        public void PlayCoreAbsorb() => PlayOneShot(feedbackConfig != null ? feedbackConfig.coreAbsorbClip : null);
         public void PlayDeath() => PlayOneShot(feedbackConfig != null ? feedbackConfig.deathClip : null);
         public void PlayUi() => PlayOneShot(feedbackConfig != null ? feedbackConfig.uiClip : null);
         public void PlayShieldRotation() => PlayOneShot(feedbackConfig != null ? feedbackConfig.shieldRotationClip : null);
         public void PlayOrangeSwitch() => PlayOneShot(feedbackConfig != null ? feedbackConfig.orangeSwitchClip : null);
+        public void PlayWhiteCrossing() => PlayOneShot(feedbackConfig != null ? feedbackConfig.whiteCrossingClip : null);
 
         public void SetSoundEnabled(bool enabled)
         {

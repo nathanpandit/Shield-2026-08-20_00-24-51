@@ -1793,6 +1793,7 @@ MonoBehaviour:
   soundButtonText: {fileID: 1664372951}
   hapticButton: {fileID: 698165352}
   hapticButtonText: {fileID: 362351262}
+  feedbackConfig: {fileID: 11400000, guid: 35b0e20ab49bc2c4280e5848c7644556, type: 2}
 --- !u!4 &1717987501
 Transform:
   m_ObjectHideFlags: 0

@@ -74,6 +74,11 @@ namespace ShieldGame
                 : (screenPosition.y >= Screen.height * 0.5f ? 0 : 1);
         }
 
+        public ArenaLayout GetArenaLayout(int arenaIndex)
+        {
+            return arenaIndex == 0 ? firstArena : arenaIndex == 1 ? secondArena : null;
+        }
+
         private void ApplyLayout()
         {
             Rect safe = Screen.safeArea;

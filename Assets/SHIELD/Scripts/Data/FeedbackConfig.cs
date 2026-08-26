@@ -15,6 +15,7 @@ namespace ShieldGame
         public Color purpleProjectileColor = new Color(0.72f, 0.35f, 1f, 1f);
         public Color redProjectileColor = new Color(1f, 0.20f, 0.20f, 1f);
         public Color orangeProjectileColor = new Color(1f, 0.45f, 0.08f, 1f);
+        public Color whiteProjectileColor = Color.white;
         public Color scoreColor = new Color(0.88f, 0.97f, 1f, 1f);
         public Color milestoneHighlightColor = new Color(1f, 0.43f, 0.82f, 1f);
 
@@ -27,10 +28,12 @@ namespace ShieldGame
 
         [Header("Optional Audio")]
         public AudioClip blockClip;
+        public AudioClip coreAbsorbClip;
         public AudioClip deathClip;
         public AudioClip uiClip;
         public AudioClip shieldRotationClip;
         public AudioClip orangeSwitchClip;
+        public AudioClip whiteCrossingClip;
         public AudioClip musicClip;
 
         public Color GetProjectileColor(ProjectileType type)
@@ -42,6 +45,7 @@ namespace ShieldGame
                 case ProjectileType.Purple: return purpleProjectileColor;
                 case ProjectileType.Red: return redProjectileColor;
                 case ProjectileType.Orange: return orangeProjectileColor;
+                case ProjectileType.White: return whiteProjectileColor;
                 default: return projectileColor;
             }
         }

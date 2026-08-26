@@ -9,7 +9,8 @@ namespace ShieldGame
         Blue = 2,
         Purple = 3,
         Red = 4,
-        Orange = 5
+        Orange = 5,
+        White = 6
     }
 
     [CreateAssetMenu(menuName = "SHIELD/Gameplay Config", fileName = "GameplayConfig")]
@@ -40,6 +41,12 @@ namespace ShieldGame
         [Range(0.12f, 0.45f)] public float orangeSwitchRadiusNormalized = 0.25f;
         [Min(1f)] public float greenProjectileSpeedMultiplier = 2f;
 
+        [Header("DUO White Projectile")]
+        [Tooltip("Chance that an otherwise eligible DUO spawn is replaced by a White cross-arena projectile.")]
+        [Range(0f, 1f)] public float duoWhiteProjectileChance = 0.01f;
+        [Tooltip("Duration of the clockwise half-orbit around the source core.")]
+        [Min(0.01f)] public float duoWhiteCurveDuration = 0.50f;
+
         [Header("Projectile Effects")]
         [Min(0.01f)] public float greenProtectionDuration = 10f;
         [Min(0.01f)] public float blueSlowDuration = 1.5f;
@@ -62,6 +69,7 @@ namespace ShieldGame
                 case ProjectileType.Purple: return purpleProjectileWeight;
                 case ProjectileType.Red: return redProjectileWeight;
                 case ProjectileType.Orange: return orangeProjectileWeight;
+                case ProjectileType.White: return 0f;
                 default: return yellowProjectileWeight;
             }
         }
@@ -85,6 +93,8 @@ namespace ShieldGame
             orangeSwitchDuration = Mathf.Max(0.01f, orangeSwitchDuration);
             orangeSwitchRadiusNormalized = Mathf.Clamp(orangeSwitchRadiusNormalized, 0.12f, 0.45f);
             greenProjectileSpeedMultiplier = Mathf.Max(1f, greenProjectileSpeedMultiplier);
+            duoWhiteProjectileChance = Mathf.Clamp01(duoWhiteProjectileChance);
+            duoWhiteCurveDuration = Mathf.Max(0.01f, duoWhiteCurveDuration);
             greenProtectionDuration = Mathf.Max(0.01f, greenProtectionDuration);
             blueSlowDuration = Mathf.Max(0.01f, blueSlowDuration);
             duoCrossArenaImpactGap = Mathf.Max(0f, duoCrossArenaImpactGap);

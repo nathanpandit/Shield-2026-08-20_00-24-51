@@ -12,6 +12,7 @@ namespace ShieldGame
         [SerializeField] private FeedbackConfig feedbackConfig;
         [SerializeField] private DuoArenaSession[] arenas;
         [SerializeField] private DuoLayoutController layoutController;
+        [SerializeField] private DuoWhiteProjectileController whiteProjectile;
         [SerializeField] private ShieldAudioManager audioManager;
         [SerializeField] private HapticManager hapticManager;
 
@@ -25,12 +26,22 @@ namespace ShieldGame
         public GameState State { get; private set; } = GameState.Initializing;
         public DuoLayoutController Layout => layoutController;
         public IReadOnlyList<DuoArenaSession> Arenas => arenas;
+        public DuoWhiteProjectileController WhiteProjectile => whiteProjectile;
         public float RunTime { get; private set; }
         public int DuoBestScore => persistence != null ? persistence.DuoBestScore : 0;
+        public bool DebugFeaturesAvailable =>
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            true;
+#else
+            gameplayConfig != null && gameplayConfig.explicitDebugFeaturesEnabled;
+#endif
 
         private readonly List<float>[] reservedImpacts = { new List<float>(8), new List<float>(8) };
         private IPersistenceService persistence;
         private Tween gameOverUiDelay;
+        private int whiteReservedSourceArena = -1;
+        private bool tickingArenas;
+        private bool whiteSpawnedDuringTick;
 
         public void Configure(
             GameplayConfig gameplay,
@@ -38,6 +49,7 @@ namespace ShieldGame
             DuoArenaSession firstArena,
             DuoArenaSession secondArena,
             DuoLayoutController layout,
+            DuoWhiteProjectileController duoWhiteProjectile,
             ShieldAudioManager audio,
             HapticManager haptics)
         {
@@ -45,6 +57,7 @@ namespace ShieldGame
             feedbackConfig = feedback;
             arenas = new[] { firstArena, secondArena };
             layoutController = layout;
+            whiteProjectile = duoWhiteProjectile;
             audioManager = audio;
             hapticManager = haptics;
         }
@@ -65,12 +78,14 @@ namespace ShieldGame
             LockMobileOrientation();
 
             persistence = new PlayerPrefsPersistenceService();
-            audioManager.Initialize(persistence, feedbackConfig);
+            audioManager.Initialize(persistence, feedbackConfig, false);
             hapticManager.Initialize(persistence);
             for (int i = 0; i < arenas.Length; i++)
             {
                 arenas[i].Initialize(this, i, persistence);
             }
+
+            whiteProjectile?.Initialize(this, gameplayConfig, feedbackConfig, arenas, layoutController);
         }
 
         private void Start()
@@ -88,9 +103,19 @@ namespace ShieldGame
             float safeDeltaTime = Mathf.Max(0f, deltaTime);
             RunTime += safeDeltaTime;
             layoutController.RefreshLayoutIfNeeded();
+            whiteSpawnedDuringTick = false;
+            tickingArenas = true;
             for (int i = 0; i < arenas.Length; i++)
             {
                 arenas[i].Tick(safeDeltaTime);
+            }
+            tickingArenas = false;
+
+            // A White projectile spawned by one of the arena ticks begins moving on
+            // the next frame, just like a newly acquired pooled projectile.
+            if (!whiteSpawnedDuringTick)
+            {
+                whiteProjectile?.Tick(safeDeltaTime);
             }
         }
 
@@ -103,6 +128,8 @@ namespace ShieldGame
             RunTime = 0f;
             reservedImpacts[0].Clear();
             reservedImpacts[1].Clear();
+            whiteReservedSourceArena = -1;
+            whiteProjectile?.Deactivate();
             layoutController.RefreshLayoutIfNeeded(true);
             for (int i = 0; i < arenas.Length; i++)
             {
@@ -128,6 +155,19 @@ namespace ShieldGame
             }
         }
 
+        public void GrantDebugGreenProtectionToAll()
+        {
+            if (!DebugFeaturesAvailable || State != GameState.Playing || arenas == null)
+            {
+                return;
+            }
+
+            for (int i = 0; i < arenas.Length; i++)
+            {
+                arenas[i]?.GrantDebugGreenProtection(10f);
+            }
+        }
+
         public void PauseGame()
         {
             if (State != GameState.Playing)
@@ -150,6 +190,18 @@ namespace ShieldGame
             Time.timeScale = 1f;
             SetState(GameState.Playing);
             PauseChanged?.Invoke(false);
+        }
+
+        public void TogglePause()
+        {
+            if (State == GameState.Playing)
+            {
+                PauseGame();
+            }
+            else if (State == GameState.Paused)
+            {
+                ResumeGame();
+            }
         }
 
         public void LoadHome()
@@ -242,8 +294,124 @@ namespace ShieldGame
             return true;
         }
 
+        public bool TryReserveWhiteImpact(float travelDuration, out float delay)
+        {
+            delay = 0f;
+            float gap = gameplayConfig != null ? Mathf.Max(0f, gameplayConfig.duoCrossArenaImpactGap) : 0.10f;
+            float candidateImpact = RunTime + Mathf.Max(0f, travelDuration);
+            PruneImpactReservations();
+            if (gap > 0f)
+            {
+                for (int arenaIndex = 0; arenaIndex < reservedImpacts.Length; arenaIndex++)
+                {
+                    List<float> reservations = reservedImpacts[arenaIndex];
+                    for (int i = 0; i < reservations.Count; i++)
+                    {
+                        if (Mathf.Abs(candidateImpact - reservations[i]) < gap)
+                        {
+                            delay = Mathf.Max(delay, reservations[i] + gap - candidateImpact);
+                        }
+                    }
+                }
+            }
+
+            if (delay > 0.0001f)
+            {
+                return false;
+            }
+
+            // White crosses the board boundary, so both future source-board and
+            // destination-board attacks must observe this arrival reservation.
+            reservedImpacts[0].Add(candidateImpact);
+            reservedImpacts[1].Add(candidateImpact);
+            return true;
+        }
+
+        public bool TrySelectWhiteProjectile(int sourceArenaIndex)
+        {
+            if (!WhiteWarmupComplete || whiteProjectile == null || whiteProjectile.IsActive ||
+                whiteReservedSourceArena >= 0 || sourceArenaIndex < 0 || sourceArenaIndex > 1)
+            {
+                return false;
+            }
+
+            float chance = gameplayConfig != null ? Mathf.Clamp01(gameplayConfig.duoWhiteProjectileChance) : 0f;
+            if (chance <= 0f || UnityEngine.Random.value >= chance)
+            {
+                return false;
+            }
+
+            whiteReservedSourceArena = sourceArenaIndex;
+            return true;
+        }
+
+        public bool CanSpawnWhiteProjectile(int sourceArenaIndex)
+        {
+            return State == GameState.Playing && whiteProjectile != null && !whiteProjectile.IsActive &&
+                   (whiteReservedSourceArena < 0 || whiteReservedSourceArena == sourceArenaIndex);
+        }
+
+        public bool TrySpawnWhiteProjectile(int sourceArenaIndex, float normalizedYellowSpeed)
+        {
+            if (!CanSpawnWhiteProjectile(sourceArenaIndex) ||
+                !whiteProjectile.Activate(sourceArenaIndex, normalizedYellowSpeed))
+            {
+                return false;
+            }
+
+            whiteReservedSourceArena = sourceArenaIndex;
+            if (tickingArenas)
+            {
+                whiteSpawnedDuringTick = true;
+            }
+
+            return true;
+        }
+
+        public float GetWhiteTravelDuration(int sourceArenaIndex, float normalizedYellowSpeed)
+        {
+            return whiteProjectile != null
+                ? whiteProjectile.CalculateTravelDuration(sourceArenaIndex, normalizedYellowSpeed)
+                : 1f / Mathf.Max(0.01f, normalizedYellowSpeed);
+        }
+
+        public AttackDirection GetWhiteTravelDirection(int sourceArenaIndex)
+        {
+            if (layoutController != null && layoutController.LandscapeSplit)
+            {
+                return sourceArenaIndex == 0 ? AttackDirection.Left : AttackDirection.Right;
+            }
+
+            return sourceArenaIndex == 0 ? AttackDirection.Top : AttackDirection.Bottom;
+        }
+
+        public bool WhiteWarmupComplete
+        {
+            get
+            {
+                if (arenas == null || arenas.Length != 2 || gameplayConfig == null)
+                {
+                    return false;
+                }
+
+                int required = Mathf.Max(0, gameplayConfig.specialProjectileWarmupCount);
+                return arenas[0].Spawner.SpawnedAttackCount >= required &&
+                       arenas[1].Spawner.SpawnedAttackCount >= required;
+            }
+        }
+
+        public void NotifyWhiteProjectileResolved(DuoWhiteProjectileController resolvedProjectile)
+        {
+            if (resolvedProjectile == whiteProjectile)
+            {
+                whiteReservedSourceArena = -1;
+            }
+        }
+
         public void PlayBlock() => audioManager?.PlayBlock();
+        public void PlayCoreAbsorb() => audioManager?.PlayCoreAbsorb();
         public void PlayOrangeSwitch() => audioManager?.PlayOrangeSwitch();
+        public void PlayWhiteCrossing() => audioManager?.PlayWhiteCrossing();
         public void PlayShieldRotation() => audioManager?.PlayShieldRotation();
 
         private void PruneImpactReservations()

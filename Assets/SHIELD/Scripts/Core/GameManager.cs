@@ -120,7 +120,7 @@ namespace ShieldGame
             difficultyManager.Initialize(scoreManager);
             projectilePool.Initialize(this);
             projectileSpawner.Initialize(this);
-            audioManager.Initialize(persistence, feedbackConfig);
+            audioManager.Initialize(persistence, feedbackConfig, false);
             hapticManager.Initialize(persistence);
         }
 
@@ -184,6 +184,18 @@ namespace ShieldGame
             Time.timeScale = 1f;
             SetState(GameState.Playing);
             PauseChanged?.Invoke(false);
+        }
+
+        public void TogglePause()
+        {
+            if (State == GameState.Playing)
+            {
+                PauseGame();
+            }
+            else if (State == GameState.Paused)
+            {
+                ResumeGame();
+            }
         }
 
         public void RotateShieldForTap()
@@ -277,6 +289,18 @@ namespace ShieldGame
                 DebugInvincibility = !DebugInvincibility;
                 StateChanged?.Invoke(State);
             }
+        }
+
+        public void GrantDebugGreenProtection()
+        {
+            if (!DebugFeaturesAvailable || State != GameState.Playing)
+            {
+                return;
+            }
+
+            GreenProtectionRemaining = 10f;
+            RefreshCoreEffectColor();
+            StatusEffectsChanged?.Invoke();
         }
 
         public void ToggleDebugOverlay()
@@ -434,7 +458,7 @@ namespace ShieldGame
                 ? feedbackConfig.GetProjectileColor(projectileType)
                 : Color.white;
             blockBurstVfx?.PlayCoreAbsorbAt(impactPosition, color);
-            audioManager?.PlayBlock();
+            audioManager?.PlayCoreAbsorb();
         }
 
         private void EndRun(Vector3 impactPosition)
